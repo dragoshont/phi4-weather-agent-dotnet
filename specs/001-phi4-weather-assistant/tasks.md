@@ -1,0 +1,156 @@
+# Tasks: Phi-4 Weather Assistant
+
+**Input**: Design documents from `/specs/001-phi4-weather-assistant/`
+
+## Phase 1: Setup (Shared Infrastructure)
+
+Purpose: Establish repo scaffolding, documentation, and base projects so all platforms share the same starting point.
+
+- [ ] T001 Finalize template customization scope in `specs/001-phi4-weather-assistant/template-customization.md`
+- [ ] T002 Add `.NET 10` pin via `global.json` at repo root
+- [ ] T003 Centralize package versions in `Directory.Build.props`
+- [ ] T004 Commit C# formatting guidance in `.editorconfig`
+- [ ] T005 Draft project overview + architecture diagram in `README.md`
+- [ ] T006 Add Windows bootstrapper `scripts/setup-windows.ps1`
+- [ ] T007 Add macOS bootstrapper `scripts/setup-macos.sh`
+- [ ] T008 Add Linux bootstrapper `scripts/setup-linux.sh`
+- [ ] T009 Capture Phase 0 research findings in `specs/001-phi4-weather-assistant/research.md`
+- [ ] T010 Define domain entities in `specs/001-phi4-weather-assistant/data-model.md`
+- [ ] T011 Document MCP + HTTP contracts in `specs/001-phi4-weather-assistant/contracts/`
+- [ ] T012 Write developer quick start in `specs/001-phi4-weather-assistant/quickstart.md`
+- [ ] T013 Rename template project to `src/Phi4WeatherAgent.Web/Phi4WeatherAgent.Web.csproj`
+- [ ] T014 Remove search/ingestion artifacts (Services/SemanticSearch.cs, Services/Ingestion/, wwwroot/Data/, wwwroot/lib/pdfjs-dist, pdf_viewer, markdown_viewer, dompurify)
+- [ ] T015 Create `src/Phi4WeatherAgent.ServiceDefaults/Phi4WeatherAgent.ServiceDefaults.csproj`
+- [ ] T016 Create `src/Phi4WeatherAgent.AppHost/Phi4WeatherAgent.AppHost.csproj`
+- [ ] T017 Create `src/Phi4WeatherAgent.Agent/Phi4WeatherAgent.Agent.csproj`
+- [ ] T018 Create test projects `tests/Phi4WeatherAgent.Agent.Tests`, `tests/Phi4WeatherAgent.Web.Tests`, `tests/Phi4WeatherAgent.E2E.Tests`
+- [ ] T019 Generate solution file `phi4-weather-agent-dotnet.sln` referencing all projects
+- [ ] T020 Add CI workflow `.github/workflows/ci.yml` (Windows, macOS, Linux matrix)
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+Purpose: Shared infrastructure that must exist before any user story work.
+
+- [ ] T021 Implement Aspire defaults in `src/Phi4WeatherAgent.ServiceDefaults/Extensions.cs`
+- [ ] T022 Configure AppHost orchestration + Foundry Local/Ollama detection in `src/Phi4WeatherAgent.AppHost/Program.cs`
+- [ ] T023 Wire Agent backend host in `src/Phi4WeatherAgent.Agent/Program.cs` (Serilog, Swagger, MCP registration placeholders)
+- [ ] T024 Add `Models/Location.cs`
+- [ ] T025 Add `Models/WeatherData.cs`
+- [ ] T026 Add `Models/AllergenData.cs`
+- [ ] T027 Add Polly-backed HTTP client registrations in `src/Phi4WeatherAgent.Agent/Services/HttpClientRegistration.cs`
+- [ ] T028 Implement `Services/Options/OpenMeteoOptions.cs`
+- [ ] T029 Add `src/Phi4WeatherAgent.Agent/Services/AgentService.cs` with conversation context helpers
+- [ ] T030 Configure Microsoft.Extensions.AI provider (Foundry Local vs Ollama) in `src/Phi4WeatherAgent.Web/Program.cs`
+- [ ] T031 Add shared UI constants (colors, typography) for WCAG AA in `src/Phi4WeatherAgent.Web/wwwroot/css/app.css`
+- [ ] T032 Scaffold Playwright project config in `tests/Phi4WeatherAgent.E2E.Tests/playwright.config.ts`
+
+---
+
+## Phase 3: User Story 1 – Basic Weather Query (Priority P1)
+
+Goal: MVP weather query path with cards, MCP tools, and automated tests.
+
+**Independent Test**: Ask "What's the weather in Seattle?" and verify weather card renders current + 7-day forecast.
+
+- [ ] T033 [P] [US1] Implement `Services/OpenMeteoGeocodeClient.cs`
+- [ ] T034 [P] [US1] Implement `Services/OpenMeteoWeatherClient.cs`
+- [ ] T035 [US1] Register typed HTTP clients + resiliency in `src/Phi4WeatherAgent.Agent/Program.cs`
+- [ ] T036 [US1] Build `Tools/GeocodeTool.cs` using Agent Framework MCP annotations
+- [ ] T037 [US1] Build `Tools/WeatherTool.cs`
+- [ ] T038 [US1] Render structured cards via `Components/Weather/WeatherCard.razor`
+- [ ] T039 [US1] Customize `Components/Chat/ChatMessageItem.razor` to display weather cards + icons
+- [ ] T040 [US1] Update `Pages/Chat.razor` system prompt + suggestion buttons for weather intents
+- [ ] T041 [US1] Extend `Services/AgentService.cs` with weather query orchestration flow
+- [ ] T042 [P] [US1] Add unit tests for Geocode + Weather clients in `tests/Phi4WeatherAgent.Agent.Tests/Services`
+- [ ] T043 [P] [US1] Add MCP tool tests in `tests/Phi4WeatherAgent.Agent.Tests/Tools`
+- [ ] T044 [P] [US1] Add bUnit coverage for WeatherCard in `tests/Phi4WeatherAgent.Web.Tests/Components/Weather`
+- [ ] T045 [US1] Add Playwright scenario "basic weather query" in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
+
+---
+
+## Phase 4: User Story 2 – Allergen Information (Priority P2)
+
+Goal: Surface pollen levels with severity + guidance while reusing MCP tooling.
+
+**Independent Test**: Ask "What are the pollen levels in Austin?" and expect allergen card with severity labels.
+
+- [ ] T046 [US2] Implement `Services/OpenMeteoAllergenClient.cs`
+- [ ] T047 [US2] Add `Tools/AllergenTool.cs`
+- [ ] T048 [US2] Create `Components/Weather/AllergenCard.razor` with severity badges
+- [ ] T049 [US2] Update `Components/Chat/ChatMessageItem.razor` to render allergen cards
+- [ ] T050 [US2] Extend `Services/AgentService.cs` with allergen command handler
+- [ ] T051 [P] [US2] Add unit tests for allergen client/tool in `tests/Phi4WeatherAgent.Agent.Tests`
+- [ ] T052 [P] [US2] Add bUnit tests for AllergenCard
+- [ ] T053 [US2] Add Playwright "allergen advisory" scenario in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
+
+---
+
+## Phase 5: User Story 3 – Multi-Day Planning (Priority P3)
+
+Goal: Provide comparative planning insights for trips/events using existing weather data.
+
+**Independent Test**: Ask "Plan my weekend in Denver" and verify side-by-side day comparison with recommendations.
+
+- [ ] T054 [US3] Create `Components/Weather/WeatherComparison.razor` for multi-day cards
+- [ ] T055 [US3] Enhance `Services/AgentService.cs` to aggregate weekend/day-range summaries
+- [ ] T056 [US3] Update system prompt in `Pages/Chat.razor` to encourage planning responses
+- [ ] T057 [US3] Persist conversation context cues (preferred location, time range) in `Services/AgentService.cs`
+- [ ] T058 [P] [US3] Add unit tests for planning heuristics in `tests/Phi4WeatherAgent.Agent.Tests/Services`
+- [ ] T059 [US3] Add Playwright "weekend planner" scenario
+
+---
+
+## Phase 6: User Story 4 – Accessibility for Screen Readers (Priority P2)
+
+Goal: WCAG 2.1 AA compliance for chat workflow + weather cards.
+
+**Independent Test**: Navigate entire experience with keyboard + NVDA/JAWS and hear weather summaries.
+
+- [ ] T060 [US4] Add ARIA roles/labels to chat components (`Components/Chat/*.razor`)
+- [ ] T061 [US4] Implement keyboard focus management and skip links in `Components/Layout/MainLayout.razor`
+- [ ] T062 [US4] Add live region announcements for new responses in `Pages/Chat.razor`
+- [ ] T063 [US4] Ensure color contrast tokens meet ≥4.5:1 in `wwwroot/css/app.css`
+- [ ] T064 [P] [US4] Add bUnit + axe automated accessibility tests in `tests/Phi4WeatherAgent.Web.Tests`
+- [ ] T065 [US4] Add Playwright keyboard + screen reader workflow test (use `playwright-accessibility` helpers)
+
+---
+
+## Final Phase: Polish & Cross-Cutting
+
+Goal: Production readiness (observability, performance, docs, licensing).
+
+- [ ] T066 Add BenchmarkDotNet harness in `tests/Phi4WeatherAgent.Agent.Tests/Benchmarks/AgentStartupBenchmarks.cs`
+- [ ] T067 Wire Aspire OpenTelemetry exporters + dashboards in `src/Phi4WeatherAgent.AppHost/Program.cs`
+- [ ] T068 Add dependency license scan step to `.github/workflows/ci.yml`
+- [ ] T069 Document troubleshooting + example queries in `README.md`
+- [ ] T070 Publish platform-specific screenshots/gifs in `README.md`
+- [ ] T071 Add manual accessibility checklist results to `specs/001-phi4-weather-assistant/quickstart.md`
+- [ ] T072 Verify setup scripts on clean VMs (Windows/macOS/Linux) and record issues in `README.md`
+
+---
+
+## Dependencies
+
+1. Phase 1 must finish before Phase 2 (foundation needs projects + scripts).
+2. Phase 2 must finish before any user story (tools need infrastructure).
+3. Phase 3 (US1) precedes US2/US3 because allergen + planning rely on base weather flow.
+4. Phase 4 (US2) must complete before Phase 5 (US3) for shared components.
+5. Phase 6 (US4) can start after Phase 3 (needs weather UI present) and can run parallel with Phases 4–5 after shared components are stable.
+6. Final Phase polishes after all user stories deliverables land.
+
+## Parallel-Friendly Tasks
+
+- T033 & T034 (HTTP clients) can be implemented independently once Phase 2 completes.
+- T042 & T043 (MCP tool tests) can run parallel to UI work (T038–T040).
+- T046–T048 (Allergen client/tool/card) can run in parallel once US1 is merged.
+- T060–T063 (accessibility styling/ARIA) can run parallel with P3 multi-day enhancements.
+- T066–T068 (benchmarks, telemetry, license scan) can run parallel late in the cycle.
+
+## Implementation Strategy
+
+1. **MVP First**: Deliver Phase 3 (US1) end-to-end to validate Agent Framework + MCP tooling early.
+2. **Incremental Enhancements**: Layer allergen data (US2) and planning insights (US3) using the same MCP abstractions to minimize rework.
+3. **Accessibility in Parallel**: Start Phase 6 as soon as core UI stabilizes to avoid regressions late in the cycle.
+4. **Observability + Performance**: Use Final Phase tasks to capture telemetry + benchmarks once most logic exists, ensuring data reflects real workloads.
