@@ -111,6 +111,19 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       
+      - name: Check for vulnerable packages
+        run: |
+          echo "Scanning for known vulnerable packages..."
+          dotnet list package --vulnerable --include-transitive | tee vulnerable-packages.txt
+          
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "❌ FAIL: Vulnerable packages detected!"
+            cat vulnerable-packages.txt
+            exit 1
+          else
+            echo "✅ PASS: No vulnerable packages found."
+          fi
+      
       - name: Check for Semantic Kernel (Constitution Principle III)
         run: |
           echo "Scanning for forbidden packages: Microsoft.SemanticKernel*"

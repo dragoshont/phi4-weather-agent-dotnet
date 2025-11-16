@@ -13,6 +13,10 @@ public class AgentService
     private readonly GeocodeTool _geocodeTool;
     private readonly WeatherTool _weatherTool;
     private readonly AllergenTool _allergenTool;
+    
+    // T057: Conversation context persistence
+    private string? _lastLocationName;
+    private Location? _lastLocation;
 
     public AgentService(
         ILogger<AgentService> logger,
@@ -178,5 +182,140 @@ public class AgentService
             _logger.LogError(ex, "Allergen query orchestration failed for location: {LocationName}", locationName);
             throw;
         }
+    }
+
+    // T055: Multi-day planning methods
+    /// <summary>
+    /// Gets weather for weekend (Saturday and Sunday) for planning purposes.
+    /// </summary>
+    /// <param name="locationName">Location name or postal code</param>
+    /// <returns>Weather data for Saturday and Sunday, or null if location not found</returns>
+    public async Task<(WeatherData? WeatherData, Location? Location)> GetWeekendWeatherAsync(string locationName)
+    {
+        try
+        {
+            _logger.LogInformation("Orchestrating weekend weather query for location: {LocationName}", locationName);
+
+            // Step 1: Geocode location (or use cached location if same as last query)
+            Location? location;
+            if (_lastLocationName == locationName && _lastLocation != null)
+            {
+                location = _lastLocation;
+                _logger.LogInformation("Using cached location: {Name}", location.Name);
+            }
+            else
+            {
+                var locations = await _geocodeTool.GeocodeLocationAsync(locationName, count: 5);
+                
+                if (locations.Length == 0)
+                {
+                    _logger.LogWarning("No locations found for: {LocationName}", locationName);
+                    return (null, null);
+                }
+
+                location = locations[0];
+                _lastLocationName = locationName;
+                _lastLocation = location;
+                _logger.LogInformation("Selected location: {Name}, {Country}", location.Name, location.Country);
+            }
+
+            // Step 2: Fetch 7-day forecast (includes upcoming weekend)
+            var weatherData = await _weatherTool.GetWeatherForecastAsync(
+                location.Latitude, 
+                location.Longitude, 
+                forecastDays: 7);
+
+            _logger.LogInformation("Successfully retrieved weekend weather for {Name}", location.Name);
+            return (weatherData, location);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Weekend weather query orchestration failed for location: {LocationName}", locationName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets weather for a specific date range for planning purposes.
+    /// </summary>
+    /// <param name="locationName">Location name or postal code</param>
+    /// <param name="startDate">Start date for forecast range</param>
+    /// <param name="endDate">End date for forecast range</param>
+    /// <returns>Weather data for date range, or null if location not found</returns>
+    public async Task<(WeatherData? WeatherData, Location? Location)> GetDateRangeWeatherAsync(
+        string locationName, 
+        DateOnly startDate, 
+        DateOnly endDate)
+    {
+        try
+        {
+            var dayCount = endDate.DayNumber - startDate.DayNumber + 1;
+            if (dayCount < 1 || dayCount > 16)
+            {
+                _logger.LogWarning("Invalid date range: {StartDate} to {EndDate} ({DayCount} days)", 
+                    startDate, endDate, dayCount);
+                throw new ArgumentException("Date range must be between 1 and 16 days");
+            }
+
+            _logger.LogInformation("Orchestrating date range weather query for {LocationName}: {StartDate} to {EndDate}", 
+                locationName, startDate, endDate);
+
+            // Step 1: Geocode location (or use cached location)
+            Location? location;
+            if (_lastLocationName == locationName && _lastLocation != null)
+            {
+                location = _lastLocation;
+                _logger.LogInformation("Using cached location: {Name}", location.Name);
+            }
+            else
+            {
+                var locations = await _geocodeTool.GeocodeLocationAsync(locationName, count: 5);
+                
+                if (locations.Length == 0)
+                {
+                    _logger.LogWarning("No locations found for: {LocationName}", locationName);
+                    return (null, null);
+                }
+
+                location = locations[0];
+                _lastLocationName = locationName;
+                _lastLocation = location;
+                _logger.LogInformation("Selected location: {Name}, {Country}", location.Name, location.Country);
+            }
+
+            // Step 2: Fetch forecast for date range
+            var weatherData = await _weatherTool.GetWeatherForecastAsync(
+                location.Latitude, 
+                location.Longitude, 
+                forecastDays: Math.Min(dayCount, 16));
+
+            _logger.LogInformation("Successfully retrieved date range weather for {Name}", location.Name);
+            return (weatherData, location);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Date range weather query orchestration failed for location: {LocationName}", locationName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the last used location name from conversation context.
+    /// </summary>
+    public string? GetLastLocationName() => _lastLocationName;
+
+    /// <summary>
+    /// Gets the last geocoded location from conversation context.
+    /// </summary>
+    public Location? GetLastLocation() => _lastLocation;
+
+    /// <summary>
+    /// Clears the conversation context memory (location cache).
+    /// </summary>
+    public void ClearContextMemory()
+    {
+        _lastLocationName = null;
+        _lastLocation = null;
+        _logger.LogInformation("Cleared conversation context memory");
     }
 }

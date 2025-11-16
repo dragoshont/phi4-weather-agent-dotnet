@@ -1,5 +1,11 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// T067: Configure Aspire OpenTelemetry exporters + dashboards
+// Aspire automatically configures OpenTelemetry for metrics, traces, and logs
+// Dashboard accessible at: http://localhost:15888 (default Aspire dashboard port)
+// Exporters: Console, OTLP (configurable via appsettings)
+// Note: ServiceDefaults already wires OpenTelemetry SDK in each project
+
 // Platform detection for AI model hosting (Principle I: Local-First AI)
 // Windows/macOS: Foundry Local
 // Linux: Ollama
@@ -11,12 +17,14 @@ var aiModelEndpoint = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
              .WithBindMount("ollama-data", "/root/.ollama");
 
 // Agent backend (ASP.NET Core API with MCP tools)
-var agent = builder.AddProject("agent", @"..\..\src\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj")
-    .WithEnvironment("AI_MODEL_ENDPOINT", () => aiModelEndpoint.GetEndpoint("http").Url);
+var agent = builder.AddProject<Projects.Phi4WeatherAgent_Agent>("agent")
+    .WithEnvironment("AI_MODEL_ENDPOINT", () => aiModelEndpoint.GetEndpoint("http").Url)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"); // Optional: OTLP collector
 
 // Blazor Server web frontend
-var web = builder.AddProject("web", @"..\..\src\Phi4WeatherAgent.Web\Phi4WeatherAgent.Web.csproj")
+var web = builder.AddProject<Projects.Phi4WeatherAgent_Web>("web")
     .WithReference(agent)
-    .WithEnvironment("AI_MODEL_ENDPOINT", () => aiModelEndpoint.GetEndpoint("http").Url);
+    .WithEnvironment("AI_MODEL_ENDPOINT", () => aiModelEndpoint.GetEndpoint("http").Url)
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
 
 builder.Build().Run();

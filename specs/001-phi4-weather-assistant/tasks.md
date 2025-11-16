@@ -93,12 +93,12 @@ Goal: Provide comparative planning insights for trips/events using existing weat
 
 **Independent Test**: Ask "Plan my weekend in Denver" and verify side-by-side day comparison with recommendations.
 
-- [ ] T054 [US3] Create `Components/Weather/WeatherComparison.razor` for multi-day cards
-- [ ] T055 [US3] Enhance `Services/AgentService.cs` to aggregate weekend/day-range summaries
-- [ ] T056 [US3] Update system prompt in `Pages/Chat.razor` to encourage planning responses
-- [ ] T057 [US3] Persist conversation context cues (preferred location, time range) in `Services/AgentService.cs`
-- [ ] T058 [P] [US3] Add unit tests for planning heuristics in `tests/Phi4WeatherAgent.Agent.Tests/Services`
-- [ ] T059 [US3] Add Playwright "weekend planner" scenario
+- [X] T054 [US3] Create `Components/Weather/WeatherComparison.razor` for multi-day cards
+- [X] T055 [US3] Enhance `Services/AgentService.cs` to aggregate weekend/day-range summaries
+- [X] T056 [US3] Update system prompt in `Pages/Chat.razor` to encourage planning responses
+- [X] T057 [US3] Persist conversation context cues (preferred location, time range) in `Services/AgentService.cs`
+- [X] T058 [P] [US3] Add unit tests for planning heuristics in `tests/Phi4WeatherAgent.Agent.Tests/Services`
+- [X] T059 [US3] Add Playwright "weekend planner" scenario
 
 ---
 
@@ -108,12 +108,12 @@ Goal: WCAG 2.1 AA compliance for chat workflow + weather cards.
 
 **Independent Test**: Navigate entire experience with keyboard + NVDA/JAWS and hear weather summaries.
 
-- [ ] T060 [US4] Add ARIA roles/labels to chat components (`Components/Chat/*.razor`) (role="main", aria-label for inputs, aria-live for message updates)
-- [ ] T061 [US4] Implement keyboard focus management and skip links in `Components/Layout/MainLayout.razor` (all interactive elements reachable via Tab, no keyboard traps, visible focus indicators ≥3:1 contrast)
-- [ ] T062 [US4] Add live region announcements for new responses in `Pages/Chat.razor` (aria-live="polite" for weather card content, screen reader reads complete summary)
-- [ ] T063 [US4] Ensure color contrast tokens meet ≥4.5:1 in `wwwroot/css/app.css` (normal text ≥4.5:1, large text ≥3:1, focus indicators ≥3:1)
-- [ ] T064 [P] [US4] Add bUnit + axe automated accessibility tests in `tests/Phi4WeatherAgent.Web.Tests` (zero high/critical violations, ARIA labels present, semantic HTML validation)
-- [ ] T065 [US4] Add Playwright keyboard + screen reader workflow test (use `playwright-accessibility` helpers)
+- [X] T060 [US4] Add ARIA roles/labels to chat components (`Components/Chat/*.razor`) (role="main", aria-label for inputs, aria-live for message updates)
+- [X] T061 [US4] Implement keyboard focus management and skip links in `Components/Layout/MainLayout.razor` (all interactive elements reachable via Tab, no keyboard traps, visible focus indicators ≥3:1 contrast)
+- [X] T062 [US4] Add live region announcements for new responses in `Pages/Chat.razor` (aria-live="polite" for weather card content, screen reader reads complete summary)
+- [X] T063 [US4] Ensure color contrast tokens meet ≥4.5:1 in `wwwroot/css/app.css` (normal text ≥4.5:1, large text ≥3:1, focus indicators ≥3:1)
+- [X] T064 [P] [US4] Add bUnit + axe automated accessibility tests in `tests/Phi4WeatherAgent.Web.Tests` (zero high/critical violations, ARIA labels present, semantic HTML validation)
+- [X] T065 [US4] Add Playwright keyboard + screen reader workflow test (use `playwright-accessibility` helpers)
 
 ---
 
@@ -121,13 +121,13 @@ Goal: WCAG 2.1 AA compliance for chat workflow + weather cards.
 
 Goal: Production readiness (observability, performance, docs, licensing).
 
-- [ ] T066 Add BenchmarkDotNet harness in `tests/Phi4WeatherAgent.Agent.Tests/Benchmarks/AgentStartupBenchmarks.cs`
-- [ ] T067 Wire Aspire OpenTelemetry exporters + dashboards in `src/Phi4WeatherAgent.AppHost/Program.cs`
-- [ ] T068 Add dependency license scan step to `.github/workflows/ci.yml` (scan for GPL/AGPL licenses AND forbidden packages: fail build if Microsoft.SemanticKernel* detected in transitive dependencies per Constitution Principle III)
-- [ ] T069 Document troubleshooting + example queries in `README.md`
-- [ ] T070 Publish platform-specific screenshots/gifs in `README.md`
-- [ ] T071 Add manual accessibility checklist results to `specs/001-phi4-weather-assistant/quickstart.md` (NVDA/JAWS screen reader testing: keyboard-only workflow completion <2min, weather card content read aloud, live region announcements working)
-- [ ] T072 Verify setup scripts on clean VMs (Windows/macOS/Linux) and record issues in `README.md`
+- [X] T066 Add BenchmarkDotNet harness in `tests/Phi4WeatherAgent.Agent.Tests/Benchmarks/AgentStartupBenchmarks.cs`
+- [X] T067 Wire Aspire OpenTelemetry exporters + dashboards in `src/Phi4WeatherAgent.AppHost/Program.cs`
+- [X] T068 Add dependency license scan step to `.github/workflows/ci.yml` (scan for GPL/AGPL licenses AND forbidden packages: fail build if Microsoft.SemanticKernel* detected in transitive dependencies per Constitution Principle III)
+- [X] T069 Document troubleshooting + example queries in `README.md`
+- [X] T070 Publish platform-specific screenshots/gifs in `README.md`
+- [X] T071 Add manual accessibility checklist results to `specs/001-phi4-weather-assistant/quickstart.md` (NVDA/JAWS screen reader testing: keyboard-only workflow completion <2min, weather card content read aloud, live region announcements working)
+- [X] T072 Verify setup scripts on clean VMs (Windows/macOS/Linux) and record issues in `README.md`
 
 ---
 

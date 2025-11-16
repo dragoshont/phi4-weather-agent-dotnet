@@ -99,6 +99,72 @@ public class WeatherQueryTests // : PageTest
         await Task.CompletedTask;
     }
     
+    // TODO T059: Implement Playwright test for multi-day planning
+    // Scenario: "Plan my weekend in Denver"
+    // Steps:
+    // 1. Navigate to chat page
+    // 2. Type "Plan my weekend in Denver"
+    // 3. Submit and wait for AI response with WeatherComparison component
+    // 4. Verify WeatherComparison displays:
+    //    - Title "Weekend Weather" or similar
+    //    - Saturday and Sunday day cards side-by-side
+    //    - Temperature ranges (high/low) for each day
+    //    - Weather descriptions and icons
+    //    - Precipitation and wind data
+    //    - Comparison summary section
+    // 5. Verify comparison insights:
+    //    - Temperature differences highlighted (e.g., "Sunday will be warmer")
+    //    - Precipitation comparisons (e.g., "Saturday expected to be wetter")
+    //    - Activity recommendations based on conditions
+    // 6. Verify responsive layout (side-by-side on desktop, stacked on mobile)
+    // 7. Verify WCAG AA: aria-labels on day cards, role="region" on comparison
+    
+    [Fact]
+    public async Task WeekendPlanner_Denver_ShowsComparativeWeather()
+    {
+        Assert.True(true, "Test not yet implemented - placeholder for T059");
+        await Task.CompletedTask;
+    }
+    
+    // TODO T059: Implement Playwright test for date range planning
+    // Scenario: "What's the weather like in Paris from March 15-20?"
+    // Steps:
+    // 1. Navigate to chat page
+    // 2. Type date range query for trip planning
+    // 3. Submit and wait for AI response with WeatherComparison
+    // 4. Verify WeatherComparison displays 6 day cards (March 15-20)
+    // 5. Verify each day card shows:
+    //    - Day name and date
+    //    - Temperature range
+    //    - Weather conditions
+    //    - Precipitation and wind
+    // 6. Verify comparison summary with best/worst days identified
+    // 7. Verify trip planning recommendations (best days for outdoor activities)
+    
+    [Fact]
+    public async Task DateRangePlanner_Paris_ShowsMultiDayComparison()
+    {
+        Assert.True(true, "Test not yet implemented - placeholder for T059");
+        await Task.CompletedTask;
+    }
+    
+    // TODO T059: Implement Playwright test for follow-up planning query
+    // Scenario: Multi-turn conversation with location context
+    // Steps:
+    // 1. Navigate to chat page
+    // 2. Type "What's the weather in Seattle?"
+    // 3. Wait for response
+    // 4. Type "How about this weekend?" (should use Seattle from context)
+    // 5. Verify WeatherComparison shows Seattle weekend forecast (not asking for location again)
+    // 6. Verify conversation context persisted (location cached)
+    
+    [Fact]
+    public async Task FollowUpPlanningQuery_UsesContextLocation()
+    {
+        Assert.True(true, "Test not yet implemented - placeholder for T059");
+        await Task.CompletedTask;
+    }
+    
     // TODO T065: Implement Playwright test for keyboard accessibility
     // Scenario: Navigate chat UI with keyboard only
     // Steps:

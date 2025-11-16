@@ -6,7 +6,6 @@
     "allowPrerelease": true
   },
   "msbuild-sdks": {
-    "Aspire.AppHost.Sdk": "13.0.0-preview.1",
     "Microsoft.Build.NoTargets": "3.7.56"
   }
 }
