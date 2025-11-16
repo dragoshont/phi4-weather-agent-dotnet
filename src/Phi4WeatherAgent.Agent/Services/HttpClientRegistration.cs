@@ -29,7 +29,8 @@ public static class HttpClientRegistration
         {
             resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
             resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
-            resilienceOptions.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+            // Circuit breaker sampling duration must be at least 2x the attempt timeout (default 10s)
+            resilienceOptions.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
         });
 
         // T034: OpenMeteoWeatherClient

@@ -36,7 +36,7 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
 
 # Check if Phi-4 Mini model exists
 Write-Host "`nChecking Phi-4 Mini model..." -ForegroundColor Yellow
-$phi4Cached = foundry cache list 2>$null | Select-String "phi4-mini"
+$phi4Cached = foundry cache list 2>$null | Select-String "phi-4-mini"
 if ($phi4Cached) {
     Write-Host "✓ Phi-4 Mini model found in cache" -ForegroundColor Green
 } else {
@@ -46,13 +46,13 @@ if ($phi4Cached) {
     Write-Host "Please wait... (foundry will show download progress)" -ForegroundColor Gray
     Write-Host ""
     
-    foundry model download phi4-mini
+    foundry model download phi-4-mini
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Phi-4 Mini model downloaded successfully" -ForegroundColor Green
     } else {
         Write-Host "✗ Phi-4 Mini model download failed. Check network connection and disk space." -ForegroundColor Red
-        Write-Host "  Retry: foundry model download phi4-mini" -ForegroundColor Yellow
+        Write-Host "  Retry: foundry model download phi-4-mini" -ForegroundColor Yellow
         exit 1
     }
 }

@@ -67,6 +67,28 @@ dotnet dev-certs https --trust
 
 **Important**: Close all browser windows after trusting certificates for changes to take effect.
 
+### Quick Start (Windows)
+
+**One-Time Setup** (run as Administrator):
+```powershell
+# Complete setup: checks, installs, and configures everything
+.\Setup-Environment.ps1
+
+# This script will:
+# - Enable Hyper-V (requires restart)
+# - Install .NET 10 SDK, Docker Desktop, Foundry Local
+# - Download Phi-4 Mini model (~3.8GB)
+# - Trust development certificates
+```
+
+**Start Application**:
+```powershell
+# Launch the application (run after setup)
+.\Start-AspireHost.ps1
+
+# Dashboard will open at: http://localhost:15000
+```
+
 ### Automated Setup (5-10 minutes)
 
 **Note**: Setup scripts are **idempotent** - safe to run multiple times. Existing installations and models will be detected and skipped.
@@ -110,14 +132,36 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
 
 **Before running the app**:
 
-1. **Start Docker Desktop** - Wait until status shows "Running" (30-60 seconds)
-   - Windows: Check system tray for Docker icon
-   - macOS: Check menu bar for Docker icon
-   - Verify: `docker ps` should not error
+1. **Verify Docker Desktop and Virtualization** (CRITICAL)
+   
+   Docker must be running with virtualization enabled:
+   
+   ```powershell
+   # Check Docker is running
+   docker ps
+   # Should return container list (or empty), NOT an error
+   
+   # Windows only: Verify virtualization enabled
+   # Open Task Manager → Performance → CPU
+   # Look for "Virtualization: Enabled"
+   ```
+   
+   **If virtualization is disabled**, see [Troubleshooting → Virtualization Support Not Detected](#3-virtualization-support-not-detected-windows)
 
-2. **Start Foundry service** (Windows/macOS only):
+2. **Start Docker Desktop** - Wait until status shows "Running" (30-60 seconds)
+   - Windows: Check system tray for Docker icon (should say "Docker Desktop is running")
+   - macOS: Check menu bar for Docker icon
+   - If Docker shows "starting" for > 2 minutes, restart Docker Desktop
+
+3. **Start Foundry service** (Windows/macOS only):
    ```powershell
    foundry service start
+   foundry service status  # Should show "running on http://..."
+   
+   # Note the port number (e.g., 62859 or 63336)
+   # Set environment variable if not using default port 62859:
+   $env:FOUNDRY_PORT="63336"  # Use your actual port
+   ```
    foundry service status  # Should show "running"
    ```
 
@@ -251,6 +295,79 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 
 ---
 
+## Aspire Configuration
+
+### Hyper-V Virtualization (Windows)
+
+**Why Required**: Aspire 13's Developer Control Plane (DCP) requires Docker Desktop, which in turn requires Hyper-V virtualization on Windows.
+
+#### Check Hyper-V Status
+
+1. **Task Manager Method**:
+   - Open Task Manager (Ctrl+Shift+Esc)
+   - Go to Performance tab → CPU
+   - Look for "Virtualization: Enabled"
+
+2. **PowerShell Method** (run as Administrator):
+   ```powershell
+   Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+   ```
+   - State should be "Enabled"
+
+#### Enable Hyper-V
+
+**Automatic (Recommended)**:
+```powershell
+# Run Check-Prerequisites.ps1 as Administrator
+# It will prompt to enable Hyper-V automatically
+.\Check-Prerequisites.ps1
+```
+
+**Manual Method**:
+
+1. **Enable Hyper-V Feature** (requires Administrator PowerShell):
+   ```powershell
+   Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+   ```
+
+2. **Enable Hypervisor Launch**:
+   ```powershell
+   bcdedit /set hypervisorlaunchtype auto
+   ```
+
+3. **Restart Computer** (required for changes to take effect)
+
+4. **Verify in BIOS** (if still not working):
+   - Restart and enter BIOS/UEFI (usually F2, F10, Del, or Esc during boot)
+   - Look for:
+     - **Intel**: "Intel VT-x" or "Intel Virtualization Technology"
+     - **AMD**: "AMD-V" or "SVM Mode"
+   - Enable the setting and save
+
+#### Docker Desktop Configuration
+
+After enabling Hyper-V:
+
+1. **Start Docker Desktop**
+   - Wait for "Docker Desktop is running" in system tray
+
+2. **Verify Docker**:
+   ```powershell
+   docker ps
+   # Should show running containers (empty list is OK)
+   ```
+
+3. **If Docker fails to start**:
+   - Open Docker Desktop settings
+   - General → Ensure "Use the WSL 2 based engine" is checked (or unchecked if WSL 2 is not installed)
+   - Resources → Adjust CPU/Memory if needed
+
+### Service Fabric Configuration
+
+> 📝 **Coming Soon**: Service Fabric orchestration configuration will be documented here for production deployments.
+
+---
+
 ## Troubleshooting
 
 ### Docker Desktop Issues
@@ -297,7 +414,51 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 
    **Note**: Per [Aspire 13 documentation](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/setup-tooling#container-runtime), Docker/Podman is a **required prerequisite** for DCP (Developer Control Plane) to function.
 
-3. **Certificate Trust Issues**
+3. **Virtualization Support Not Detected (Windows)**
+
+   **Symptoms**: "Docker Desktop failed to start because virtualisation support wasn't detected"
+
+   **Root Cause**: Windows Hyper-V virtualization disabled or not properly configured
+
+   **Fix (requires Administrator PowerShell)**:
+
+   ```powershell
+   # Step 1: Quit Docker Desktop completely
+   # Right-click Docker Desktop in system tray → Quit Docker Desktop
+   
+   # Step 2: Enable hypervisor (run as Administrator)
+   bcdedit /set hypervisorlaunchtype auto
+   
+   # Step 3: Restart computer
+   Restart-Computer
+   
+   # Step 4: After restart, verify virtualization is enabled
+   # Open Task Manager → Performance tab → CPU
+   # Check that "Virtualization: Enabled" is shown
+   
+   # Step 5: Start Docker Desktop
+   ```
+
+   **Alternative fix if above doesn't work**:
+
+   ```powershell
+   # Run as Administrator
+   
+   # Disable and re-enable Hyper-V
+   Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+   Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+   
+   # Restart computer
+   Restart-Computer
+   ```
+
+   **Check BIOS settings** if problem persists:
+   - Reboot and enter BIOS/UEFI settings (usually F2, F10, or Del key during boot)
+   - Find "Virtualization Technology" or "Intel VT-x" / "AMD-V"
+   - Ensure it's **Enabled**
+   - Save and exit BIOS
+
+4. **Certificate Trust Issues**
 
    **Symptoms**: Browser shows "Your connection is not private" or ERR_CERT_AUTHORITY_INVALID
 

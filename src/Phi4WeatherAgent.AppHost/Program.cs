@@ -7,14 +7,16 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Note: ServiceDefaults already wires OpenTelemetry SDK in each project
 
 // Platform detection for AI model hosting (Principle I: Local-First AI)
-// Windows/macOS: Foundry Local (external service at http://localhost:62859)
+// Windows/macOS: Foundry Local (external service - check with `foundry service status`)
 // Linux: Ollama container
-// Note: Foundry Local must be running - check with `foundry service status`
+// Note: Foundry Local must be running and port may vary (typically 62859 or 63336)
 string aiModelEndpointUrl;
 if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
 {
     // Foundry Local OpenAI-compatible endpoint (requires /v1 base path)
-    aiModelEndpointUrl = "http://localhost:62859/v1";
+    // Get port from environment variable or use default
+    var foundryPort = Environment.GetEnvironmentVariable("FOUNDRY_PORT") ?? "62859";
+    aiModelEndpointUrl = $"http://localhost:{foundryPort}/v1";
 }
 else
 {
