@@ -17,6 +17,7 @@ builder.Services.AddOpenMeteoClients(builder.Configuration);
 // Register MCP tools for weather queries
 builder.Services.AddScoped<GeocodeTool>();
 builder.Services.AddScoped<WeatherTool>();
+builder.Services.AddScoped<AllergenTool>();
 
 // Configure IChatClient with platform-specific AI provider (T030)
 // Platform detection from AppHost: Foundry Local (Windows/macOS) vs Ollama (Linux)

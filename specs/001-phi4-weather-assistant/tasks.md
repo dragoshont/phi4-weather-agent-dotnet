@@ -76,14 +76,14 @@ Goal: Surface pollen levels with severity + guidance while reusing MCP tooling.
 
 **Independent Test**: Ask "What are the pollen levels in Austin?" and expect allergen card with severity labels.
 
-- [ ] T046 [US2] Implement `Services/OpenMeteoAllergenClient.cs` (Air Quality API endpoint: https://air-quality-api.open-meteo.com/v1/air-quality with pollen params: alder_pollen, birch_pollen, grass_pollen, mugwort_pollen, olive_pollen, ragweed_pollen; Europe only, 4-day forecast)
-- [ ] T047 [US2] Add `Tools/AllergenTool.cs` (MCP function for Air Quality API pollen data, grains/m³ units, severity calculation: Low/Moderate/High/VeryHigh)
-- [ ] T048 [US2] Create `Components/Weather/AllergenCard.razor` with severity badges
-- [ ] T049 [US2] Update `Components/Chat/ChatMessageItem.razor` to render allergen cards
-- [ ] T050 [US2] Extend `Services/AgentService.cs` with allergen command handler
-- [ ] T051 [P] [US2] Add unit tests for allergen client/tool in `tests/Phi4WeatherAgent.Agent.Tests`
-- [ ] T052 [P] [US2] Add bUnit tests for AllergenCard
-- [ ] T053 [US2] Add Playwright "allergen advisory" scenario in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
+- [X] T046 [US2] Implement `Services/OpenMeteoAllergenClient.cs` (Air Quality API endpoint: https://air-quality-api.open-meteo.com/v1/air-quality with pollen params: alder_pollen, birch_pollen, grass_pollen, mugwort_pollen, olive_pollen, ragweed_pollen; Europe only, 4-day forecast)
+- [X] T047 [US2] Add `Tools/AllergenTool.cs` (MCP function for Air Quality API pollen data, grains/m³ units, severity calculation: Low/Moderate/High/VeryHigh)
+- [X] T048 [US2] Create `Components/Weather/AllergenCard.razor` with severity badges
+- [X] T049 [US2] Update `Components/Chat/ChatMessageItem.razor` to render allergen cards
+- [X] T050 [US2] Extend `Services/AgentService.cs` with allergen command handler
+- [X] T051 [P] [US2] Add unit tests for allergen client/tool in `tests/Phi4WeatherAgent.Agent.Tests`
+- [X] T052 [P] [US2] Add bUnit tests for AllergenCard
+- [X] T053 [US2] Add Playwright "allergen advisory" scenario in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
 
 ---
 

@@ -44,17 +44,17 @@ public static class HttpClientRegistration
             resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
         });
 
-        // TODO T046: Register OpenMeteoAllergenClient
-        // services.AddHttpClient<OpenMeteoAllergenClient>(client =>
-        // {
-        //     client.BaseAddress = new Uri(options.AirQualityBaseUrl);
-        //     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-        // })
-        // .AddStandardResilienceHandler(resilienceOptions =>
-        // {
-        //     resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
-        //     resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
-        // });
+        // T046: OpenMeteoAllergenClient
+        services.AddHttpClient<OpenMeteoAllergenClient>(client =>
+        {
+            client.BaseAddress = new Uri(options.AirQualityBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        })
+        .AddStandardResilienceHandler(resilienceOptions =>
+        {
+            resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
+            resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
+        });
 
         return services;
     }

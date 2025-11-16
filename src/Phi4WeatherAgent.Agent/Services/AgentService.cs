@@ -12,15 +12,18 @@ public class AgentService
     private readonly ILogger<AgentService> _logger;
     private readonly GeocodeTool _geocodeTool;
     private readonly WeatherTool _weatherTool;
+    private readonly AllergenTool _allergenTool;
 
     public AgentService(
         ILogger<AgentService> logger,
         GeocodeTool geocodeTool,
-        WeatherTool weatherTool)
+        WeatherTool weatherTool,
+        AllergenTool allergenTool)
     {
         _logger = logger;
         _geocodeTool = geocodeTool;
         _weatherTool = weatherTool;
+        _allergenTool = allergenTool;
     }
 
     /// <summary>
@@ -130,12 +133,50 @@ public class AgentService
         }
     }
 
-    // TODO T050: Add allergen query orchestration flow
-    // public async Task<AllergenData> GetAllergenLevelsAsync(string locationName)
-    // {
-    //     // 1. Call GeocodeTool to get coordinates
-    //     // 2. Validate Europe region (IsEuropeRegion check)
-    //     // 3. Call AllergenTool with coordinates
-    //     // 4. Return AllergenData with severity calculation
-    // }
+    // T050: Allergen query orchestration flow
+    /// <summary>
+    /// Orchestrates allergen query: geocode location → validate Europe region → fetch pollen levels.
+    /// </summary>
+    /// <param name="locationName">Location name or postal code</param>
+    /// <returns>Allergen data with pollen levels and severity, or null if location not found</returns>
+    public async Task<(AllergenData? AllergenData, Location? Location)> GetAllergenLevelsAsync(string locationName)
+    {
+        try
+        {
+            _logger.LogInformation("Orchestrating allergen query for location: {LocationName}", locationName);
+
+            // Step 1: Geocode location name to coordinates
+            var locations = await _geocodeTool.GeocodeLocationAsync(locationName, count: 5);
+            
+            if (locations.Length == 0)
+            {
+                _logger.LogWarning("No locations found for: {LocationName}", locationName);
+                return (null, null);
+            }
+
+            var location = locations[0]; // Use first match (best match from API)
+            _logger.LogInformation("Selected location: {Name}, {Country} (lat={Lat}, lon={Lon})", 
+                location.Name, location.Country, location.Latitude, location.Longitude);
+
+            // Step 2: Fetch allergen data for coordinates
+            var allergenData = await _allergenTool.GetAllergenLevelsAsync(
+                location.Latitude, 
+                location.Longitude);
+
+            // Step 3: Log Europe region status
+            if (!allergenData.IsEuropeRegion)
+            {
+                _logger.LogWarning("Location {Name} is outside Europe - pollen data not available", location.Name);
+            }
+
+            _logger.LogInformation("Successfully retrieved allergen data for {Name}, severity={Severity}", 
+                location.Name, allergenData.Severity);
+            return (allergenData, location);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Allergen query orchestration failed for location: {LocationName}", locationName);
+            throw;
+        }
+    }
 }

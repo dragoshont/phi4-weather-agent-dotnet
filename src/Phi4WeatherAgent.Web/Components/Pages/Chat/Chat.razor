@@ -4,6 +4,7 @@
 @inject IChatClient ChatClient
 @inject GeocodeTool GeocodeTool
 @inject WeatherTool WeatherTool
+@inject AllergenTool AllergenTool
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -37,17 +38,20 @@
         - Current weather conditions and forecasts (up to 16 days)
         - Temperature, precipitation, wind speed, cloud cover
         - Sunrise and sunset times
+        - Pollen levels and allergen information (Europe only)
         
         Available tools:
         - GeocodeLocation: Convert location names to coordinates
         - GetWeatherForecast: Get weather data for coordinates
+        - GetAllergenLevels: Get pollen levels for coordinates (Europe only)
         
         Guidelines:
         - Always ask for the location if not provided
         - For ambiguous locations (e.g., 'Paris'), ask for clarification (country/state)
-        - Use GeocodeLocation first, then GetWeatherForecast with the coordinates
-        - Present information clearly with current conditions and daily forecasts
-        - Temperature is in Celsius, precipitation in mm, wind in km/h
+        - Use GeocodeLocation first, then GetWeatherForecast or GetAllergenLevels with the coordinates
+        - For pollen queries, inform users that data is only available for European locations
+        - Present information clearly with current conditions and forecasts
+        - Temperature is in Celsius, precipitation in mm, wind in km/h, pollen in grains/m³
         
         Be concise and friendly in your responses.
         ";
@@ -65,10 +69,11 @@
         statefulMessageCount = 0;
         messages.Add(new(ChatRole.System, SystemPrompt));
         
-        // T036-T037: Register MCP tools for Agent Framework
+        // T036-T037, T047: Register MCP tools for Agent Framework
         chatOptions.Tools = [
             AIFunctionFactory.Create(GeocodeTool.GeocodeLocationAsync),
-            AIFunctionFactory.Create(WeatherTool.GetWeatherForecastAsync)
+            AIFunctionFactory.Create(WeatherTool.GetWeatherForecastAsync),
+            AIFunctionFactory.Create(AllergenTool.GetAllergenLevelsAsync)
         ];
     }
 

@@ -25,10 +25,10 @@ builder.Services.AddOpenMeteoClients(builder.Configuration);
 // Register AgentService for conversation context (T029)
 builder.Services.AddScoped<AgentService>();
 
-// Register MCP tools (T036-T037)
+// Register MCP tools (T036-T037, T047)
 builder.Services.AddScoped<GeocodeTool>();
 builder.Services.AddScoped<WeatherTool>();
-// TODO T047: Register AllergenTool
+builder.Services.AddScoped<AllergenTool>();
 
 var app = builder.Build();
 
