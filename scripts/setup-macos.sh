@@ -40,20 +40,22 @@ else
     fi
 fi
 
-# Check if Phi-4 model exists
-echo -e "\n${YELLOW}Checking Phi-4 model...${NC}"
-if foundry cache list 2>/dev/null | grep -q "phi4"; then
-    echo -e "${GREEN}✓ Phi-4 model found in cache${NC}"
+# Check if Phi-4 Mini model exists
+echo -e "\n${YELLOW}Checking Phi-4 Mini model...${NC}"
+if foundry cache list 2>/dev/null | grep -q "phi4-mini"; then
+    echo -e "${GREEN}✓ Phi-4 Mini model found in cache${NC}"
 else
-    echo -e "${YELLOW}Downloading Phi-4 model (~7GB, optimized ONNX format)...${NC}"
-    echo -e "${CYAN}This may take 5-15 minutes depending on connection speed${NC}"
+    echo -e "${YELLOW}Downloading Phi-4 Mini model (~3.8GB, optimized ONNX format)...${NC}"
+    echo -e "${CYAN}This may take 3-8 minutes depending on connection speed${NC}"
     echo -e "${GRAY}Note: Using hardware-optimized variant (CPU/GPU/NPU auto-detection)${NC}"
+    echo -e "${GRAY}Please wait... (foundry will show download progress)${NC}"
     
-    if foundry model download phi4; then
-        echo -e "${GREEN}✓ Phi-4 model downloaded successfully${NC}"
+    # Run with output visible to show progress
+    if foundry model download phi4-mini 2>&1; then
+        echo -e "${GREEN}✓ Phi-4 Mini model downloaded successfully${NC}"
     else
-        echo -e "${RED}✗ Phi-4 model download failed. Check network connection and disk space.${NC}"
-        echo -e "${YELLOW}  Retry: foundry model download phi4${NC}"
+        echo -e "${RED}✗ Phi-4 Mini model download failed. Check network connection and disk space.${NC}"
+        echo -e "${YELLOW}  Retry: foundry model download phi4-mini${NC}"
         exit 1
     fi
 fi
@@ -61,6 +63,6 @@ fi
 echo -e "\n${CYAN}=== Setup Complete ===${NC}"
 echo -e "${GREEN}✓ .NET 10 SDK: $DOTNET_VERSION${NC}"
 echo -e "${GREEN}✓ Foundry Local: Installed${NC}"
-echo -e "${GREEN}✓ Phi-4 model: Ready${NC}"
+echo -e "${GREEN}✓ Phi-4 Mini model: Ready${NC}"
 echo -e "\n${GREEN}You can now run: dotnet run --project src/Phi4WeatherAgent.AppHost${NC}"
 echo -e "${CYAN}Aspire Dashboard will be available at: http://localhost:15888${NC}"

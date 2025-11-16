@@ -10,7 +10,7 @@
 - **macOS**: Foundry Local (via `aspire-ai` workload)  
 - **Linux**: Ollama (manual installation, documented in setup guide)
 
-**Model**: Microsoft Phi-4 (14B parameters, quantized for consumer hardware)
+**Model**: Microsoft Phi-4 Mini (3.8GB optimized ONNX for CPU/NPU inference)
 
 ### Principle II: .NET 10 Requirement
 **.NET 10 SDK is MANDATORY** for this project.

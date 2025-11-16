@@ -60,7 +60,7 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
 **What the setup scripts do**:
 - ✅ Verify .NET 10 SDK installed
 - ✅ Install Foundry Local (Windows/macOS) or Ollama (Linux)
-- ✅ Download Phi-4 model (~7GB, hardware-optimized ONNX/quantized format)
+- ✅ Download Phi-4 Mini model (~3.8GB optimized for CPU/NPU, quantized format)
 - ✅ Skip downloads if already present (idempotency)
 
 **Expected Output**:

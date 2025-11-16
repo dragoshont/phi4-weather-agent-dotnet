@@ -40,15 +40,17 @@ else
     fi
 fi
 
-# Check if Phi-4 model exists
+# Check if Phi-4 model exists (Ollama uses 'phi4' as the standard alias)
 echo -e "\n${YELLOW}Checking Phi-4 model...${NC}"
 if ollama list 2>/dev/null | grep -q "phi4"; then
     echo -e "${GREEN}✓ Phi-4 model found${NC}"
 else
     echo -e "${YELLOW}Downloading Phi-4 model (~7GB, q4_0 quantized format)...${NC}"
     echo -e "${CYAN}This may take 5-15 minutes depending on connection speed${NC}"
-    echo -e "${GRAY}Note: Ollama automatically selects best quantization for your hardware${NC}"
+    echo -e "${GRAY}Note: Ollama uses 'phi4' as the standard model (comparable to Foundry's phi4-mini)${NC}"
+    echo -e "${GRAY}Please wait... (ollama will show download progress)${NC}"
     
+    # Run with output visible to show progress (ollama shows progress by default)
     if ollama pull phi4; then
         echo -e "${GREEN}✓ Phi-4 model downloaded successfully${NC}"
     else

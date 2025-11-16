@@ -34,23 +34,25 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
     Write-Host "  Note: You may need to restart your terminal for 'foundry' command to be available" -ForegroundColor Cyan
 }
 
-# Check if Phi-4 model exists
-Write-Host "`nChecking Phi-4 model..." -ForegroundColor Yellow
-$phi4Cached = foundry cache list 2>$null | Select-String "phi4"
+# Check if Phi-4 Mini model exists
+Write-Host "`nChecking Phi-4 Mini model..." -ForegroundColor Yellow
+$phi4Cached = foundry cache list 2>$null | Select-String "phi4-mini"
 if ($phi4Cached) {
-    Write-Host "✓ Phi-4 model found in cache" -ForegroundColor Green
+    Write-Host "✓ Phi-4 Mini model found in cache" -ForegroundColor Green
 } else {
-    Write-Host "Downloading Phi-4 model (~7GB, optimized ONNX format)..." -ForegroundColor Yellow
-    Write-Host "This may take 5-15 minutes depending on connection speed" -ForegroundColor Cyan
+    Write-Host "Downloading Phi-4 Mini model (~3.8GB, optimized ONNX format)..." -ForegroundColor Yellow
+    Write-Host "This may take 3-8 minutes depending on connection speed" -ForegroundColor Cyan
     Write-Host "Note: Using hardware-optimized variant (CPU/GPU/NPU auto-detection)" -ForegroundColor Gray
+    Write-Host "Please wait... (foundry will show download progress)" -ForegroundColor Gray
+    Write-Host ""
     
-    foundry model download phi4
+    & foundry model download phi4-mini
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✓ Phi-4 model downloaded successfully" -ForegroundColor Green
+        Write-Host "✓ Phi-4 Mini model downloaded successfully" -ForegroundColor Green
     } else {
-        Write-Host "✗ Phi-4 model download failed. Check network connection and disk space." -ForegroundColor Red
-        Write-Host "  Retry: foundry model download phi4" -ForegroundColor Yellow
+        Write-Host "✗ Phi-4 Mini model download failed. Check network connection and disk space." -ForegroundColor Red
+        Write-Host "  Retry: foundry model download phi4-mini" -ForegroundColor Yellow
         exit 1
     }
 }
@@ -58,6 +60,6 @@ if ($phi4Cached) {
 Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
 Write-Host "✓ .NET 10 SDK: $dotnetVersion" -ForegroundColor Green
 Write-Host "✓ Foundry Local: Installed" -ForegroundColor Green
-Write-Host "✓ Phi-4 model: Ready" -ForegroundColor Green
+Write-Host "✓ Phi-4 Mini model: Ready" -ForegroundColor Green
 Write-Host "`nYou can now run: dotnet run --project src/Phi4WeatherAgent.AppHost" -ForegroundColor Green
 Write-Host "Aspire Dashboard will be available at: http://localhost:15888" -ForegroundColor Cyan
