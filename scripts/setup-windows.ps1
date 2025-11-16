@@ -46,7 +46,7 @@ if ($phi4Cached) {
     Write-Host "Please wait... (foundry will show download progress)" -ForegroundColor Gray
     Write-Host ""
     
-    & foundry model download phi4-mini
+    foundry model download phi4-mini
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Phi-4 Mini model downloaded successfully" -ForegroundColor Green

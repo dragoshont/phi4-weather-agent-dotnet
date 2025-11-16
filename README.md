@@ -24,11 +24,50 @@
 
 ### Prerequisites
 
-- **.NET 10 SDK** (10.0.100+) - [Download](https://dotnet.microsoft.com/download/dotnet/10.0)
-- **Foundry Local** (Windows/macOS) OR **Ollama** (Linux) - [Foundry Docs](https://foundry.ms) | [Ollama Docs](https://ollama.com)
-- **Git** - [Download](https://git-scm.com/downloads)
+#### Required Software
 
-### Setup (5 minutes)
+1. **.NET 10 SDK** (10.0.100 or later)
+   - Download: https://dotnet.microsoft.com/download/dotnet/10.0
+   - Verify: `dotnet --version` (should show 10.x.x)
+
+2. **Docker Desktop** (Required for Aspire 13 orchestration)
+   - Windows: `winget install Docker.DockerDesktop`
+   - macOS: `brew install --cask docker`
+   - Linux: Follow [Docker Engine installation](https://docs.docker.com/engine/install/)
+   - **Important**: Start Docker Desktop and wait until it shows "Running" status
+   - Verify: `docker ps` (should not error)
+
+3. **Foundry Local** (Windows/macOS) OR **Ollama** (Linux)
+   - **Windows**: `winget install Microsoft.FoundryLocal`
+   - **macOS**: `winget install Microsoft.FoundryLocal` (via Homebrew)
+   - **Linux**: Install Ollama from https://ollama.com
+   - Verify: `foundry --version` (Windows/macOS) or `ollama --version` (Linux)
+
+4. **Git**
+   - Windows: `winget install Git.Git`
+   - macOS: `brew install git`
+   - Linux: `sudo apt install git` (Ubuntu/Debian)
+   - Verify: `git --version`
+
+#### AI Model
+
+- **Phi-4 Mini** (~3.8GB download, hardware-optimized ONNX format)
+  - Windows/macOS: `foundry model download phi-4-mini`
+  - Linux: `ollama pull phi4-mini`
+  - **Note**: Download takes 3-8 minutes depending on connection speed
+  - Verify: `foundry cache list` (should show phi-4-mini)
+
+#### Developer Certificates (First-time setup)
+
+```powershell
+# Trust ASP.NET Core development certificates
+dotnet dev-certs https --clean
+dotnet dev-certs https --trust
+```
+
+**Important**: Close all browser windows after trusting certificates for changes to take effect.
+
+### Automated Setup (5-10 minutes)
 
 **Note**: Setup scripts are **idempotent** - safe to run multiple times. Existing installations and models will be detected and skipped.
 
@@ -37,6 +76,9 @@
 git clone https://github.com/dragoshont/phi4-weather-agent-dotnet.git
 cd phi4-weather-agent-dotnet
 git checkout 001-phi-weather-assistant
+
+# Ensure Docker Desktop is running before setup
+# Check system tray (Windows) or menu bar (macOS) for Docker icon
 
 # Run platform-specific setup (idempotent - safe to re-run)
 # Windows:
@@ -58,14 +100,33 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
 ```
 
 **What the setup scripts do**:
+
 - ✅ Verify .NET 10 SDK installed
+- ✅ Install Docker Desktop (if not present)
 - ✅ Install Foundry Local (Windows/macOS) or Ollama (Linux)
 - ✅ Download Phi-4 Mini model (~3.8GB optimized for CPU/NPU, quantized format)
+- ✅ Trust ASP.NET Core development certificates
 - ✅ Skip downloads if already present (idempotency)
 
+**Before running the app**:
+
+1. **Start Docker Desktop** - Wait until status shows "Running" (30-60 seconds)
+   - Windows: Check system tray for Docker icon
+   - macOS: Check menu bar for Docker icon
+   - Verify: `docker ps` should not error
+
+2. **Start Foundry service** (Windows/macOS only):
+   ```powershell
+   foundry service start
+   foundry service status  # Should show "running"
+   ```
+
 **Expected Output**:
-- Aspire Dashboard: `http://localhost:15888`
-- Web UI: `http://localhost:5000` (or random port shown in console)
+
+- Aspire Dashboard: `http://localhost:15000` or `https://localhost:17000`
+- Web UI: Check Aspire Dashboard → Resources tab → Click "web" service for URL
+
+**Note**: First launch may take 30-60 seconds as DCP (Developer Control Plane) initializes containers.
 
 ---
 
@@ -187,6 +248,148 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 - 🚀 **[Quick Start Guide](specs/001-phi4-weather-assistant/quickstart.md)** - Developer onboarding
 - 🔬 **[Research Findings](specs/001-phi4-weather-assistant/research.md)** - Technical deep dives
 - ✅ **[Task List](specs/001-phi4-weather-assistant/tasks.md)** - Implementation progress
+
+---
+
+## Troubleshooting
+
+### Docker Desktop Issues
+
+1. **Dashboard Not Accessible / Connection Refused**
+
+   **Symptoms**: Cannot access `http://localhost:15000` or `https://localhost:17000`
+
+   **Root Cause**: Docker Desktop not running (required for Aspire DCP)
+
+   **Fix**:
+
+   ```powershell
+   # Check if Docker Desktop is running
+   docker ps
+   
+   # If error "Cannot connect to Docker daemon":
+   # 1. Start Docker Desktop from Start Menu/Applications
+   # 2. Wait 30-60 seconds until system tray/menu bar shows "Running"
+   # 3. Retry: docker ps
+   
+   # Verify Docker is healthy
+   Get-Process "Docker Desktop" | Select-Object Name, Id
+   ```
+
+2. **DCP Not Starting (No Processes)**
+
+   **Symptoms**: AppHost logs "Now listening" but port not accessible
+
+   **Root Cause**: Aspire requires Docker even for non-containerized apps (DCP dependency)
+
+   **Fix**:
+
+   ```powershell
+   # Ensure Docker Desktop installed
+   winget list Docker.DockerDesktop
+   
+   # If not installed
+   winget install Docker.DockerDesktop
+   
+   # Restart AppHost after Docker is running
+   dotnet run --project src/Phi4WeatherAgent.AppHost
+   ```
+
+   **Note**: Per [Aspire 13 documentation](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/setup-tooling#container-runtime), Docker/Podman is a **required prerequisite** for DCP (Developer Control Plane) to function.
+
+3. **Certificate Trust Issues**
+
+   **Symptoms**: Browser shows "Your connection is not private" or ERR_CERT_AUTHORITY_INVALID
+
+   **Fix**:
+
+   ```powershell
+   # Clean and recreate certificates
+   dotnet dev-certs https --clean
+   dotnet dev-certs https --trust
+   
+   # IMPORTANT: Close all browser windows after trusting
+   Stop-Process -Name "msedge","chrome","firefox" -Force -ErrorAction SilentlyContinue
+   
+   # Restart AppHost
+   dotnet run --project src/Phi4WeatherAgent.AppHost
+   ```
+
+### Foundry Local Issues
+
+1. **Model Download Failures (Network Timeout)**
+
+   **Windows/macOS (Foundry Local)**:
+
+   **Error**: `Failed to download phi-4-mini model: Connection timeout`
+
+   **Fix**:
+
+   ```powershell
+   # Manual model download
+   foundry model download phi-4-mini
+   
+   # Verify download (should show phi-4-mini)
+   foundry cache list
+   
+   # Check service status
+   foundry service status
+   ```
+
+2. **Foundry Service Not Running**
+
+   **Error**: HTTP 404 on `http://127.0.0.1:62859/`
+
+   **Fix**:
+
+   ```powershell
+   # Start Foundry service
+   foundry service start
+   
+   # Verify it's running (should show "running on http://127.0.0.1:62859")
+   foundry service status
+   
+   # Test correct endpoint (note /v1 path)
+   curl http://127.0.0.1:62859/v1/models
+   ```
+
+   **Note**: Foundry Local API requires `/v1` base path for OpenAI-compatible endpoints.
+
+### Build Errors
+
+1. **Port Conflicts**
+
+   **Error**: `Failed to bind to address http://localhost:17000: Address already in use`
+
+   **Fix**:
+
+   ```powershell
+   # Find and kill processes on conflicting ports
+   Get-Process | Where-Object { $_.ProcessName -match "dotnet|Phi4Weather" } | Stop-Process -Force
+   
+   # Or restart with HTTP profile (port 15000)
+   $env:ASPIRE_ALLOW_UNSECURED_TRANSPORT="true"
+   dotnet run --project src/Phi4WeatherAgent.AppHost --launch-profile http
+   ```
+
+2. **Missing .NET 10 SDK**
+
+   **Error**: `The current .NET SDK does not support targeting .NET 10.0`
+
+   **Fix**:
+
+   ```powershell
+   # Windows
+   winget install Microsoft.DotNet.SDK.10
+   
+   # macOS
+   brew install dotnet@10
+   
+   # Verify
+   dotnet --version  # Should show 10.x.x
+   ```
+
+For more troubleshooting, see [Aspire Troubleshooting Guide](https://learn.microsoft.com/en-us/dotnet/aspire/troubleshooting/overview).
 
 ---
 

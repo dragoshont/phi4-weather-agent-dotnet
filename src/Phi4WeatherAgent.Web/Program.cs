@@ -19,16 +19,26 @@ builder.Services.AddScoped<GeocodeTool>();
 builder.Services.AddScoped<WeatherTool>();
 builder.Services.AddScoped<AllergenTool>();
 
-// Configure IChatClient with platform-specific AI provider (T030)
+// Register AgentService for conversation management (T033)
+builder.Services.AddScoped<AgentService>();
+
+// Configure IChatClient with platform-specific AI provider (T034)
 // Platform detection from AppHost: Foundry Local (Windows/macOS) vs Ollama (Linux)
-var aiModelEndpoint = builder.Configuration["AI_MODEL_ENDPOINT"] ?? "http://localhost:11434";
+// Both use OpenAI-compatible API format
+var aiModelEndpoint = builder.Configuration["AI_MODEL_ENDPOINT"] ?? "http://localhost:62859";
 
 builder.Services.AddChatClient(services =>
 {
-    // Use OllamaChatClient for both Foundry Local and Ollama (compatible API)
-    // Constructor: OllamaChatClient(Uri endpoint, string modelId)
-    return new OllamaChatClient(new Uri(aiModelEndpoint), "phi4");
-});
+    // Foundry Local and Ollama both use OpenAI-compatible endpoints
+    // OllamaChatClient works with both since they share the same API format
+    // Model: "phi-4-mini" for Foundry Local, "phi4" for Ollama
+    var modelId = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() 
+        ? "phi-4-mini" 
+        : "phi4";
+    return new OllamaChatClient(new Uri(aiModelEndpoint), modelId);
+})
+.UseFunctionInvocation() // Enable MCP tool calling (T051)
+.UseLogging(); // Add telemetry (T018-T020)
 
 var app = builder.Build();
 
