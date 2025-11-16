@@ -6,26 +6,26 @@
 
 Purpose: Establish repo scaffolding, documentation, and base projects so all platforms share the same starting point.
 
-- [ ] T001 Finalize template customization scope in `specs/001-phi4-weather-assistant/template-customization.md`
-- [ ] T002 Add `.NET 10` pin via `global.json` at repo root
-- [ ] T003 Centralize package versions in `Directory.Build.props`
-- [ ] T004 Commit C# formatting guidance in `.editorconfig`
-- [ ] T005 Draft project overview + architecture diagram in `README.md`
-- [ ] T006 Add Windows bootstrapper `scripts/setup-windows.ps1`
-- [ ] T007 Add macOS bootstrapper `scripts/setup-macos.sh`
-- [ ] T008 Add Linux bootstrapper `scripts/setup-linux.sh`
-- [ ] T009 Capture Phase 0 research findings in `specs/001-phi4-weather-assistant/research.md` (5 sections: Agent Framework patterns, Aspire 13 orchestration, OpenMeteo API contracts, Polly resilience policies, WCAG 2.1 AA guidelines)
-- [ ] T010 Define domain entities in `specs/001-phi4-weather-assistant/data-model.md` (Location, WeatherData with CurrentConditions/DailyForecast, AllergenData with pollen levels, ChatMessage with structured data)
-- [ ] T011 Document MCP + HTTP contracts in `specs/001-phi4-weather-assistant/contracts/` (GeocodeTool signature with locationName param, WeatherTool with lat/lon/forecastDays, AllergenTool with lat/lon for Air Quality API pollen data)
-- [ ] T012 Write developer quick start in `specs/001-phi4-weather-assistant/quickstart.md` (include example natural language queries: location-based, time-based, multi-day, allergen, planning patterns)
-- [ ] T013 Rename template project to `src/Phi4WeatherAgent.Web/Phi4WeatherAgent.Web.csproj` (use `dotnet new aichatweb --name Phi4WeatherAgent.Web` WITHOUT --provider flag to avoid Ollama lock-in; defer IChatClient config to T030)
-- [ ] T014 Remove search/ingestion artifacts (Services/SemanticSearch.cs, Services/Ingestion/, wwwroot/Data/, wwwroot/lib/pdfjs-dist, pdf_viewer, markdown_viewer, dompurify)
-- [ ] T015 Create `src/Phi4WeatherAgent.ServiceDefaults/Phi4WeatherAgent.ServiceDefaults.csproj`
-- [ ] T016 Create `src/Phi4WeatherAgent.AppHost/Phi4WeatherAgent.AppHost.csproj`
-- [ ] T017 Create `src/Phi4WeatherAgent.Agent/Phi4WeatherAgent.Agent.csproj`
-- [ ] T018 Create test projects `tests/Phi4WeatherAgent.Agent.Tests`, `tests/Phi4WeatherAgent.Web.Tests`, `tests/Phi4WeatherAgent.E2E.Tests`
-- [ ] T019 Generate solution file `phi4-weather-agent-dotnet.sln` referencing all projects
-- [ ] T020 Add CI workflow `.github/workflows/ci.yml` (Windows, macOS, Linux matrix)
+- [X] T001 Finalize template customization scope in `specs/001-phi4-weather-assistant/template-customization.md`
+- [X] T002 Add `.NET 10` pin via `global.json` at repo root
+- [X] T003 Centralize package versions in `Directory.Build.props`
+- [X] T004 Commit C# formatting guidance in `.editorconfig`
+- [X] T005 Draft project overview + architecture diagram in `README.md`
+- [X] T006 Add Windows bootstrapper `scripts/setup-windows.ps1`
+- [X] T007 Add macOS bootstrapper `scripts/setup-macos.sh`
+- [X] T008 Add Linux bootstrapper `scripts/setup-linux.sh`
+- [X] T009 Capture Phase 0 research findings in `specs/001-phi4-weather-assistant/research.md` (5 sections: Agent Framework patterns, Aspire 13 orchestration, OpenMeteo API contracts, Polly resilience policies, WCAG 2.1 AA guidelines)
+- [X] T010 Define domain entities in `specs/001-phi4-weather-assistant/data-model.md` (Location, WeatherData with CurrentConditions/DailyForecast, AllergenData with pollen levels, ChatMessage with structured data)
+- [X] T011 Document MCP + HTTP contracts in `specs/001-phi4-weather-assistant/contracts/` (GeocodeTool signature with locationName param, WeatherTool with lat/lon/forecastDays, AllergenTool with lat/lon for Air Quality API pollen data)
+- [X] T012 Write developer quick start in `specs/001-phi4-weather-assistant/quickstart.md` (include example natural language queries: location-based, time-based, multi-day, allergen, planning patterns)
+- [X] T013 Rename template project to `src/Phi4WeatherAgent.Web/Phi4WeatherAgent.Web.csproj` (use `dotnet new aichatweb --name Phi4WeatherAgent.Web` WITHOUT --provider flag to avoid Ollama lock-in; defer IChatClient config to T030)
+- [X] T014 Remove search/ingestion artifacts (Services/SemanticSearch.cs, Services/Ingestion/, wwwroot/Data/, wwwroot/lib/pdfjs-dist, pdf_viewer, markdown_viewer, dompurify)
+- [X] T015 Create `src/Phi4WeatherAgent.ServiceDefaults/Phi4WeatherAgent.ServiceDefaults.csproj`
+- [X] T016 Create `src/Phi4WeatherAgent.AppHost/Phi4WeatherAgent.AppHost.csproj`
+- [X] T017 Create `src/Phi4WeatherAgent.Agent/Phi4WeatherAgent.Agent.csproj`
+- [X] T018 Create test projects `tests/Phi4WeatherAgent.Agent.Tests`, `tests/Phi4WeatherAgent.Web.Tests`, `tests/Phi4WeatherAgent.E2E.Tests`
+- [X] T019 Generate solution file `phi4-weather-agent-dotnet.sln` referencing all projects
+- [X] T020 Add CI workflow `.github/workflows/ci.yml` (Windows, macOS, Linux matrix)
 
 ---
 
@@ -33,18 +33,18 @@ Purpose: Establish repo scaffolding, documentation, and base projects so all pla
 
 Purpose: Shared infrastructure that must exist before any user story work.
 
-- [ ] T021 Implement Aspire defaults in `src/Phi4WeatherAgent.ServiceDefaults/Extensions.cs`
-- [ ] T022 Configure AppHost orchestration + Foundry Local/Ollama detection in `src/Phi4WeatherAgent.AppHost/Program.cs`
-- [ ] T023 Wire Agent backend host in `src/Phi4WeatherAgent.Agent/Program.cs` (Serilog, Swagger, MCP registration placeholders)
-- [ ] T024 Add `Models/Location.cs`
-- [ ] T025 Add `Models/WeatherData.cs`
-- [ ] T026 Add `Models/AllergenData.cs`
-- [ ] T027 Add Polly-backed HTTP client registrations in `src/Phi4WeatherAgent.Agent/Services/HttpClientRegistration.cs`
-- [ ] T028 Implement `Services/Options/OpenMeteoOptions.cs`
-- [ ] T029 Add `src/Phi4WeatherAgent.Agent/Services/AgentService.cs` with conversation context helpers
-- [ ] T030 Configure Microsoft.Extensions.AI provider (Foundry Local vs Ollama) in `src/Phi4WeatherAgent.Web/Program.cs` (use AppHost platform detection for OS-specific model hosting: Foundry Local for Windows/macOS, Ollama for Linux)
-- [ ] T031 Add shared UI constants (colors, typography) for WCAG AA in `src/Phi4WeatherAgent.Web/wwwroot/css/app.css` (color contrast ≥4.5:1 for normal text, ≥3:1 for large text, visible focus indicators)
-- [ ] T032 Scaffold Playwright project config in `tests/Phi4WeatherAgent.E2E.Tests/playwright.config.ts` (target browsers: Chromium/Firefox/WebKit, viewport 1920x1080, trace-on-failure, base URL for AppHost, 30s timeout)
+- [X] T021 Implement Aspire defaults in `src/Phi4WeatherAgent.ServiceDefaults/Extensions.cs`
+- [X] T022 Configure AppHost orchestration + Foundry Local/Ollama detection in `src/Phi4WeatherAgent.AppHost/Program.cs`
+- [X] T023 Wire Agent backend host in `src/Phi4WeatherAgent.Agent/Program.cs` (Serilog, Swagger, MCP registration placeholders)
+- [X] T024 Add `Models/Location.cs`
+- [X] T025 Add `Models/WeatherData.cs`
+- [X] T026 Add `Models/AllergenData.cs`
+- [X] T027 Add Polly-backed HTTP client registrations in `src/Phi4WeatherAgent.Agent/Services/HttpClientRegistration.cs`
+- [X] T028 Implement `Services/Options/OpenMeteoOptions.cs`
+- [X] T029 Add `src/Phi4WeatherAgent.Agent/Services/AgentService.cs` with conversation context helpers
+- [X] T030 Configure Microsoft.Extensions.AI provider (Foundry Local vs Ollama) in `src/Phi4WeatherAgent.Web/Program.cs` (use AppHost platform detection for OS-specific model hosting: Foundry Local for Windows/macOS, Ollama for Linux)
+- [X] T031 Add shared UI constants (colors, typography) for WCAG AA in `src/Phi4WeatherAgent.Web/wwwroot/css/app.css` (color contrast ≥4.5:1 for normal text, ≥3:1 for large text, visible focus indicators)
+- [X] T032 Scaffold Playwright project config in `tests/Phi4WeatherAgent.E2E.Tests/playwright.config.ts` (target browsers: Chromium/Firefox/WebKit, viewport 1920x1080, trace-on-failure, base URL for AppHost, 30s timeout)
 
 ---
 

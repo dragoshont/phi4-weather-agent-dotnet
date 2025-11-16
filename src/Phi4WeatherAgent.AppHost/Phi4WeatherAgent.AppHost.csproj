@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Phi4WeatherAgent.ServiceDefaults\Phi4WeatherAgent.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Phi4WeatherAgent.Web\Phi4WeatherAgent.Web.csproj" />
+    <ProjectReference Include="..\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj" />
+  </ItemGroup>
+
+</Project>

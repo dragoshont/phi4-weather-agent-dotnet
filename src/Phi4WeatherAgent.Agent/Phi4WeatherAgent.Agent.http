@@ -1,0 +1,6 @@
+@Phi4WeatherAgent.Agent_HostAddress = http://localhost:5197
+
+GET {{Phi4WeatherAgent.Agent_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
