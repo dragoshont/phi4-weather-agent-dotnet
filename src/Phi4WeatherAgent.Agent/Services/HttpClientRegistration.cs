@@ -19,30 +19,30 @@ public static class HttpClientRegistration
         var options = configuration.GetSection(OpenMeteoOptions.SectionName).Get<OpenMeteoOptions>() 
             ?? new OpenMeteoOptions();
 
-        // TODO T033: Register OpenMeteoGeocodeClient
-        // services.AddHttpClient<OpenMeteoGeocodeClient>(client =>
-        // {
-        //     client.BaseAddress = new Uri(options.GeocodeBaseUrl);
-        //     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-        // })
-        // .AddStandardResilienceHandler(resilienceOptions =>
-        // {
-        //     resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
-        //     resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
-        //     resilienceOptions.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
-        // });
+        // T033: OpenMeteoGeocodeClient
+        services.AddHttpClient<OpenMeteoGeocodeClient>(client =>
+        {
+            client.BaseAddress = new Uri(options.GeocodeBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        })
+        .AddStandardResilienceHandler(resilienceOptions =>
+        {
+            resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
+            resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
+            resilienceOptions.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(10);
+        });
 
-        // TODO T034: Register OpenMeteoWeatherClient
-        // services.AddHttpClient<OpenMeteoWeatherClient>(client =>
-        // {
-        //     client.BaseAddress = new Uri(options.WeatherBaseUrl);
-        //     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-        // })
-        // .AddStandardResilienceHandler(resilienceOptions =>
-        // {
-        //     resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
-        //     resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
-        // });
+        // T034: OpenMeteoWeatherClient
+        services.AddHttpClient<OpenMeteoWeatherClient>(client =>
+        {
+            client.BaseAddress = new Uri(options.WeatherBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        })
+        .AddStandardResilienceHandler(resilienceOptions =>
+        {
+            resilienceOptions.Retry.MaxRetryAttempts = options.MaxRetryAttempts;
+            resilienceOptions.Retry.BackoffType = DelayBackoffType.Exponential;
+        });
 
         // TODO T046: Register OpenMeteoAllergenClient
         // services.AddHttpClient<OpenMeteoAllergenClient>(client =>

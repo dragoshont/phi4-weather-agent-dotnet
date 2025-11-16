@@ -54,19 +54,19 @@ Goal: MVP weather query path with cards, MCP tools, and automated tests.
 
 **Independent Test**: Ask "What's the weather in Seattle?" and verify weather card renders current + 7-day forecast.
 
-- [ ] T033 [P] [US1] Implement `Services/OpenMeteoGeocodeClient.cs`
-- [ ] T034 [P] [US1] Implement `Services/OpenMeteoWeatherClient.cs`
-- [ ] T035 [US1] Register typed HTTP clients + resiliency in `src/Phi4WeatherAgent.Agent/Program.cs`
-- [ ] T036 [US1] Build `Tools/GeocodeTool.cs` using Agent Framework MCP annotations
-- [ ] T037 [US1] Build `Tools/WeatherTool.cs`
-- [ ] T038 [US1] Render structured cards via `Components/Weather/WeatherCard.razor`
-- [ ] T039 [US1] Customize `Components/Chat/ChatMessageItem.razor` to display weather cards + icons
-- [ ] T040 [US1] Update `Pages/Chat.razor` system prompt + suggestion buttons for weather intents (system prompt: clarify available data - weather/pollen, always ask for location if missing, handle ambiguous locations)
-- [ ] T041 [US1] Extend `Services/AgentService.cs` with weather query orchestration flow (use in-memory conversation context with List<ChatMessage> per SignalR session, no persistence per zero-cost principle, clear context on disconnect)
-- [ ] T042 [P] [US1] Add unit tests for Geocode + Weather clients in `tests/Phi4WeatherAgent.Agent.Tests/Services`
-- [ ] T043 [P] [US1] Add MCP tool tests in `tests/Phi4WeatherAgent.Agent.Tests/Tools`
-- [ ] T044 [P] [US1] Add bUnit coverage for WeatherCard in `tests/Phi4WeatherAgent.Web.Tests/Components/Weather`
-- [ ] T045 [US1] Add Playwright scenario "basic weather query" in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
+- [X] T033 [P] [US1] Implement `Services/OpenMeteoGeocodeClient.cs`
+- [X] T034 [P] [US1] Implement `Services/OpenMeteoWeatherClient.cs`
+- [X] T035 [US1] Register typed HTTP clients + resiliency in `src/Phi4WeatherAgent.Agent/Program.cs`
+- [X] T036 [US1] Build `Tools/GeocodeTool.cs` using Agent Framework MCP annotations
+- [X] T037 [US1] Build `Tools/WeatherTool.cs`
+- [X] T038 [US1] Render structured cards via `Components/Weather/WeatherCard.razor`
+- [X] T039 [US1] Customize `Components/Chat/ChatMessageItem.razor` to display weather cards + icons
+- [X] T040 [US1] Update `Pages/Chat.razor` system prompt + suggestion buttons for weather intents (system prompt: clarify available data - weather/pollen, always ask for location if missing, handle ambiguous locations)
+- [X] T041 [US1] Extend `Services/AgentService.cs` with weather query orchestration flow (use in-memory conversation context with List<ChatMessage> per SignalR session, no persistence per zero-cost principle, clear context on disconnect)
+- [X] T042 [P] [US1] Add unit tests for Geocode + Weather clients in `tests/Phi4WeatherAgent.Agent.Tests/Services`
+- [X] T043 [P] [US1] Add MCP tool tests in `tests/Phi4WeatherAgent.Agent.Tests/Tools`
+- [X] T044 [P] [US1] Add bUnit coverage for WeatherCard in `tests/Phi4WeatherAgent.Web.Tests/Components/Weather`
+- [X] T045 [US1] Add Playwright scenario "basic weather query" in `tests/Phi4WeatherAgent.E2E.Tests/WeatherQueryTests.cs`
 
 ---
 

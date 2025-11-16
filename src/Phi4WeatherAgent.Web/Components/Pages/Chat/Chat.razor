@@ -1,5 +1,9 @@
 ﻿@page "/"
+@using Phi4WeatherAgent.Agent.Tools
+@using Microsoft.Extensions.AI
 @inject IChatClient ChatClient
+@inject GeocodeTool GeocodeTool
+@inject WeatherTool WeatherTool
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -25,11 +29,27 @@
 </div>
 
 @code {
-    // TODO T040: Replace with weather-specific system prompt
+    // T040: Weather-specific system prompt with tool context
     private const string SystemPrompt = @"
-        You are a helpful weather assistant.
-        You can provide weather forecasts and pollen information for any location.
-        Please ask the user for their location if they haven't specified one.
+        You are a helpful weather assistant powered by Phi-4 running locally.
+        
+        You can provide:
+        - Current weather conditions and forecasts (up to 16 days)
+        - Temperature, precipitation, wind speed, cloud cover
+        - Sunrise and sunset times
+        
+        Available tools:
+        - GeocodeLocation: Convert location names to coordinates
+        - GetWeatherForecast: Get weather data for coordinates
+        
+        Guidelines:
+        - Always ask for the location if not provided
+        - For ambiguous locations (e.g., 'Paris'), ask for clarification (country/state)
+        - Use GeocodeLocation first, then GetWeatherForecast with the coordinates
+        - Present information clearly with current conditions and daily forecasts
+        - Temperature is in Celsius, precipitation in mm, wind in km/h
+        
+        Be concise and friendly in your responses.
         ";
 
     private int statefulMessageCount;
@@ -44,8 +64,12 @@
     {
         statefulMessageCount = 0;
         messages.Add(new(ChatRole.System, SystemPrompt));
-        // TODO T036-T037: Register GeocodeTool, WeatherTool, AllergenTool
-        // chatOptions.Tools = [ ... ];
+        
+        // T036-T037: Register MCP tools for Agent Framework
+        chatOptions.Tools = [
+            AIFunctionFactory.Create(GeocodeTool.GeocodeLocationAsync),
+            AIFunctionFactory.Create(WeatherTool.GetWeatherForecastAsync)
+        ];
     }
 
     private async Task AddUserMessageAsync(ChatMessage userMessage)

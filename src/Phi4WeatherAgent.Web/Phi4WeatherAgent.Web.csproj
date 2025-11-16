@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Phi4WeatherAgent.ServiceDefaults\Phi4WeatherAgent.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj" />
   </ItemGroup>
 
 </Project>

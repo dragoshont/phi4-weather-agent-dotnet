@@ -18,4 +18,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.AI;
 using Phi4WeatherAgent.Web.Components;
+using Phi4WeatherAgent.Agent.Services;
+using Phi4WeatherAgent.Agent.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +10,13 @@ builder.AddServiceDefaults();
 
 // Blazor Server
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+
+// Register OpenMeteo HTTP clients (needed for MCP tools)
+builder.Services.AddOpenMeteoClients(builder.Configuration);
+
+// Register MCP tools for weather queries
+builder.Services.AddScoped<GeocodeTool>();
+builder.Services.AddScoped<WeatherTool>();
 
 // Configure IChatClient with platform-specific AI provider (T030)
 // Platform detection from AppHost: Foundry Local (Windows/macOS) vs Ollama (Linux)

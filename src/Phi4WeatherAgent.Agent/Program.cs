@@ -1,4 +1,5 @@
 using Phi4WeatherAgent.Agent.Services;
+using Phi4WeatherAgent.Agent.Tools;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,7 +25,10 @@ builder.Services.AddOpenMeteoClients(builder.Configuration);
 // Register AgentService for conversation context (T029)
 builder.Services.AddScoped<AgentService>();
 
-// TODO T036-T037: Register MCP tools (GeocodeTool, WeatherTool, AllergenTool)
+// Register MCP tools (T036-T037)
+builder.Services.AddScoped<GeocodeTool>();
+builder.Services.AddScoped<WeatherTool>();
+// TODO T047: Register AllergenTool
 
 var app = builder.Build();
 

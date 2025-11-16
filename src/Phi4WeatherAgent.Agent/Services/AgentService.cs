@@ -1,4 +1,6 @@
 using Microsoft.Extensions.AI;
+using Phi4WeatherAgent.Agent.Models;
+using Phi4WeatherAgent.Agent.Tools;
 
 namespace Phi4WeatherAgent.Agent.Services;
 
@@ -8,10 +10,17 @@ namespace Phi4WeatherAgent.Agent.Services;
 public class AgentService
 {
     private readonly ILogger<AgentService> _logger;
+    private readonly GeocodeTool _geocodeTool;
+    private readonly WeatherTool _weatherTool;
 
-    public AgentService(ILogger<AgentService> logger)
+    public AgentService(
+        ILogger<AgentService> logger,
+        GeocodeTool geocodeTool,
+        WeatherTool weatherTool)
     {
         _logger = logger;
+        _geocodeTool = geocodeTool;
+        _weatherTool = weatherTool;
     }
 
     /// <summary>
@@ -79,13 +88,47 @@ public class AgentService
         }
     }
 
-    // TODO T041: Add weather query orchestration flow
-    // public async Task<WeatherData> GetWeatherAsync(string locationName, int forecastDays = 7)
-    // {
-    //     // 1. Call GeocodeTool to get coordinates
-    //     // 2. Call WeatherTool with coordinates
-    //     // 3. Return WeatherData with structured response
-    // }
+    // T041: Weather query orchestration flow
+    /// <summary>
+    /// Orchestrates complete weather query: geocode location → fetch forecast.
+    /// </summary>
+    /// <param name="locationName">Location name or postal code</param>
+    /// <param name="forecastDays">Number of forecast days (1-16, default 7)</param>
+    /// <returns>Weather data with current conditions and daily forecasts, or null if location not found</returns>
+    public async Task<(WeatherData? WeatherData, Location? Location)> GetWeatherAsync(string locationName, int forecastDays = 7)
+    {
+        try
+        {
+            _logger.LogInformation("Orchestrating weather query for location: {LocationName}", locationName);
+
+            // Step 1: Geocode location name to coordinates
+            var locations = await _geocodeTool.GeocodeLocationAsync(locationName, count: 5);
+            
+            if (locations.Length == 0)
+            {
+                _logger.LogWarning("No locations found for: {LocationName}", locationName);
+                return (null, null);
+            }
+
+            var location = locations[0]; // Use first match (best match from API)
+            _logger.LogInformation("Selected location: {Name}, {Country} (lat={Lat}, lon={Lon})", 
+                location.Name, location.Country, location.Latitude, location.Longitude);
+
+            // Step 2: Fetch weather forecast for coordinates
+            var weatherData = await _weatherTool.GetWeatherForecastAsync(
+                location.Latitude, 
+                location.Longitude, 
+                forecastDays);
+
+            _logger.LogInformation("Successfully retrieved weather for {Name}", location.Name);
+            return (weatherData, location);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Weather query orchestration failed for location: {LocationName}", locationName);
+            throw;
+        }
+    }
 
     // TODO T050: Add allergen query orchestration flow
     // public async Task<AllergenData> GetAllergenLevelsAsync(string locationName)
