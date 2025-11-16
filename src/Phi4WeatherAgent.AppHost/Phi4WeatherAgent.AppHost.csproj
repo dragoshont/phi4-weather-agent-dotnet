@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <!-- Aspire.Hosting.AppHost is now included automatically by the SDK -->
-    <ProjectReference Include="..\Phi4WeatherAgent.ServiceDefaults\Phi4WeatherAgent.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Phi4WeatherAgent.ServiceDefaults\Phi4WeatherAgent.ServiceDefaults.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\Phi4WeatherAgent.Web\Phi4WeatherAgent.Web.csproj" />
     <ProjectReference Include="..\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj" />
   </ItemGroup>

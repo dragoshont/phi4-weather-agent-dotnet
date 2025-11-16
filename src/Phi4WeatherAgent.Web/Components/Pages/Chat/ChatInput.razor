@@ -2,7 +2,7 @@
 
 <EditForm Model="@this" OnValidSubmit="@SendMessageAsync">
     <label class="input-box page-width">
-        <textarea @ref="@textArea" @bind="@messageText" placeholder="Type your message..." rows="1"></textarea>
+        <textarea @ref="@textArea" @bind="@messageText" placeholder="Type your message..." rows="1" aria-label="Type your weather question"></textarea>
 
         <div class="tools">
             <button type="submit" title="Send" class="send-button">

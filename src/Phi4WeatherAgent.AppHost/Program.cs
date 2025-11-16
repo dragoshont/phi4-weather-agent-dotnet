@@ -13,7 +13,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 string aiModelEndpointUrl;
 if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
 {
-    // Foundry Local OpenAI-compatible endpoint (requires /v1 base path)
+    // Foundry Local - OpenAI-compatible API (requires /v1 base path)
     // Get port from environment variable or use default
     var foundryPort = Environment.GetEnvironmentVariable("FOUNDRY_PORT") ?? "62859";
     aiModelEndpointUrl = $"http://localhost:{foundryPort}/v1";
