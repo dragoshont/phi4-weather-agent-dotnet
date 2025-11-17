@@ -20,9 +20,6 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // Register OpenMeteo HTTP clients (used by [Tool] decorated methods in Phi4WeatherAgent.Tools)
 builder.Services.AddOpenMeteoClients(builder.Configuration);
 
-// Register AgentService for conversation management (T033)
-builder.Services.AddScoped<AgentService>();
-
 // T132-T136: Register functools invocation layer services
 builder.Services.AddSingleton<IFunctoolsParser, FunctoolsParser>();
 builder.Services.AddSingleton<IToolRegistry, ToolRegistry>();
@@ -74,8 +71,7 @@ builder.Services.AddChatClient(services =>
     var logger = services.GetRequiredService<ILogger<FunctoolsChatClient>>();
     
     return new FunctoolsChatClient(baseClient, parser, invoker, logger);
-})
-.UseLogging(); // Add telemetry (T018-T020)
+});
 
 var app = builder.Build();
 

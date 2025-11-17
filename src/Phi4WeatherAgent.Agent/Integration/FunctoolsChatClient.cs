@@ -156,24 +156,25 @@ public sealed class FunctoolsChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // Buffer the streaming response to detect functools
+        // IMPORTANT: We must buffer BEFORE yielding to avoid showing functools to user
         _parser.Reset();
         var messagesList = chatMessages.ToList();
         var fullResponseText = new StringBuilder();
-        var updates = new List<ChatResponseUpdate>();
 
         _logger.LogDebug("Streaming mode - buffering response to detect functools");
 
-        // Collect all streaming updates
+        // Collect all streaming updates WITHOUT yielding them yet
         await foreach (var update in _innerClient.GetStreamingResponseAsync(messagesList, options, cancellationToken))
         {
             if (!string.IsNullOrEmpty(update.Text))
             {
                 fullResponseText.Append(update.Text);
             }
-            updates.Add(update);
         }
 
         var responseText = fullResponseText.ToString();
+        
+        _logger.LogWarning("BUFFERED RESPONSE (length={Length}): '{Text}'", responseText.Length, responseText);
         
         // Try to parse functools
         IEnumerable<FunctionCall> functionCalls;
@@ -189,18 +190,19 @@ public sealed class FunctoolsChatClient : IChatClient
 
         var calls = functionCalls.ToList();
         
-        // If no functools detected, return original stream
+        // If no functools detected, yield the buffered response as a single update
         if (calls.Count == 0)
         {
-            _logger.LogDebug("No functools detected in stream, returning original updates");
-            foreach (var update in updates)
-            {
-                yield return update;
-            }
+            _logger.LogInformation("No functools detected in stream (length={Length}), returning buffered text", responseText.Length);
+            // Yield the entire buffered response as one update
+            yield return new ChatResponseUpdate 
+            { 
+                Contents = [new TextContent(responseText)]
+            };
             yield break;
         }
 
-        _logger.LogInformation("Detected {Count} tool calls in stream: {Tools}", 
+        _logger.LogWarning("FUNCTOOLS DETECTED! Count={Count}, Tools={Tools}", 
             calls.Count, string.Join(", ", calls.Select(c => c.Name)));
 
         // Execute tools
@@ -230,7 +232,7 @@ public sealed class FunctoolsChatClient : IChatClient
 
         _logger.LogDebug("Re-prompting model with {Count} tool results", toolResults.Count);
 
-        // Stream the final response
+        // Stream the final response (this will NOT contain functools)
         await foreach (var update in _innerClient.GetStreamingResponseAsync(updatedMessages, options, cancellationToken))
         {
             yield return update;

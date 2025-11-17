@@ -179,14 +179,61 @@ public sealed class FunctoolsParser : IFunctoolsParser
     }
 
     /// <summary>
+    /// Sanitizes common malformed JSON patterns from model output.
+    /// Handles cases like extra braces: {"arguments":{"location":"X"}}} -> {"arguments":{"location":"X"}}
+    /// </summary>
+    private string SanitizeFunctoolsJson(string json)
+    {
+        // Pattern: Model often adds extra closing braces before final ]
+        // Example: {"name":"X","arguments":{"location":"Y"}}}] should be {"name":"X","arguments":{"location":"Y"}}]
+        
+        // Count opening and closing braces to detect imbalance
+        int openBraces = 0;
+        int closeBraces = 0;
+        
+        foreach (char c in json)
+        {
+            if (c == '{') openBraces++;
+            else if (c == '}') closeBraces++;
+        }
+        
+        // If more closing than opening braces, try to fix by removing extras from the end
+        if (closeBraces > openBraces)
+        {
+            int extraBraces = closeBraces - openBraces;
+            StringBuilder sb = new StringBuilder(json);
+            
+            // Remove extra } from the end (before any trailing whitespace)
+            for (int removed = 0; removed < extraBraces; removed++)
+            {
+                for (int i = sb.Length - 1; i >= 0; i--)
+                {
+                    if (sb[i] == '}')
+                    {
+                        sb.Remove(i, 1);
+                        break;
+                    }
+                }
+            }
+            
+            return sb.ToString();
+        }
+        
+        return json;
+    }
+
+    /// <summary>
     /// Parses a functools block (JSON array of function calls).
     /// </summary>
     private IEnumerable<FunctionCall> ParseBlock(ReadOnlySpan<char> blockText)
     {
         var result = new List<FunctionCall>();
 
+        // Sanitize common malformed patterns from model output
+        var sanitized = SanitizeFunctoolsJson(blockText.ToString());
+
         // Parse as JSON array
-        using var doc = JsonDocument.Parse(blockText.ToString());
+        using var doc = JsonDocument.Parse(sanitized);
         var root = doc.RootElement;
 
         if (root.ValueKind == JsonValueKind.Array)

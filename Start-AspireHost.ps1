@@ -10,6 +10,17 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ============================================
+# 0. Clean up any running Phi4WeatherAgent processes
+# ============================================
+$processesToStop = Get-Process -Name "Phi4WeatherAgent.Agent","Phi4WeatherAgent.Web","Phi4WeatherAgent.AppHost","dcpctrl","dcp" -ErrorAction SilentlyContinue
+if ($processesToStop) {
+    Write-Host "Stopping existing Phi4WeatherAgent processes..." -ForegroundColor Yellow
+    $processesToStop | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "  OK All processes stopped" -ForegroundColor Green
+}
+
+# ============================================
 # 1. Check Docker Desktop
 # ============================================
 Write-Host "[1/3] Verifying Docker Desktop..." -ForegroundColor Yellow

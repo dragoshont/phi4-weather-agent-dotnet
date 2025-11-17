@@ -30,11 +30,15 @@
     private const string SystemPrompt = @"
         You are a helpful weather assistant powered by Phi-4 running locally.
         
-        IMPORTANT: When you need to use a tool, output the tool call in this exact format:
-        functools[{""name"":""ToolName"",""arguments"":{...}}]
+        IMPORTANT: When you need to use a tool, you MUST output the tool call in this EXACT format with proper JSON:
+        functools[{""name"":""ToolName"",""arguments"":{""arg1"":""value1"",""arg2"":123}}]
         
-        For example, to geocode a location:
-        functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        CRITICAL: The format is functools[ then ONE object with ""name"" and ""arguments"", then ].
+        Do NOT add extra braces. The arguments value must be a valid JSON object.
+        
+        Examples:
+        - To geocode: functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        - To get weather: functools[{""name"":""GetWeather"",""arguments"":{""latitude"":48.8566,""longitude"":2.3522}}]
         
         You can provide:
         - Current weather conditions and forecasts (up to 16 days)
