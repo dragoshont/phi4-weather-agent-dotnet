@@ -34,6 +34,12 @@
     private const string SystemPrompt = @"
         You are a helpful weather assistant powered by Phi-4 running locally.
         
+        IMPORTANT: When you need to use a tool, output the tool call in this exact format:
+        functools[{""name"":""ToolName"",""arguments"":{...}}]
+        
+        For example, to geocode a location:
+        functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        
         You can provide:
         - Current weather conditions and forecasts (up to 16 days)
         - Temperature, precipitation, wind speed, cloud cover
@@ -41,10 +47,13 @@
         - Pollen levels and allergen information (Europe only)
         - Multi-day planning and weekend comparisons
         
-        Available tools:
+        Available tools (use functools format to call them):
         - GeocodeLocation: Convert location names to coordinates
+          Arguments: {""location"": string}
         - GetWeatherForecast: Get weather data for coordinates
+          Arguments: {""latitude"": number, ""longitude"": number, ""days"": number}
         - GetAllergenLevels: Get pollen levels for coordinates (Europe only)
+          Arguments: {""latitude"": number, ""longitude"": number}
         
         Guidelines:
         - Always ask for the location if not provided
@@ -98,13 +107,19 @@
         var responseText = new TextContent("");
         currentResponseMessage = new ChatMessage(ChatRole.Assistant, [responseText]);
         currentResponseCancellation = new();
+        Console.WriteLine($"[Chat] Starting streaming request with {messages.Count - statefulMessageCount} messages");
+        var updateCount = 0;
         await foreach (var update in ChatClient.GetStreamingResponseAsync(messages.Skip(statefulMessageCount), chatOptions, currentResponseCancellation.Token))
         {
+            updateCount++;
+            Console.WriteLine($"[Chat] Update #{updateCount}: Text='{update.Text}' (length={update.Text?.Length ?? 0})");
             messages.AddMessages(update, filter: c => c is not TextContent);
             responseText.Text += update.Text;
             chatOptions.ConversationId = update.ConversationId;
             ChatMessageItem.NotifyChanged(currentResponseMessage);
+            await InvokeAsync(StateHasChanged);
         }
+        Console.WriteLine($"[Chat] Streaming complete. Total updates: {updateCount}, Final text length: {responseText.Text.Length}");
 
         // Store the final response in the conversation, and begin getting suggestions
         messages.Add(currentResponseMessage!);

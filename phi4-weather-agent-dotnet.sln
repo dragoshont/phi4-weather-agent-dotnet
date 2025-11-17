@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Phi4WeatherAgent.E2E.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Phi4WeatherAgent.AppHost", "src\Phi4WeatherAgent.AppHost\Phi4WeatherAgent.AppHost.csproj", "{F3228F36-BD42-48C2-9F84-201F7424B511}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Phi4WeatherAgent.Agent.Tests", "src\Phi4WeatherAgent.Agent.Tests\Phi4WeatherAgent.Agent.Tests.csproj", "{A218A3F0-520E-477E-9E52-FDB7D9E12306}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -115,6 +117,18 @@ Global
 		{F3228F36-BD42-48C2-9F84-201F7424B511}.Release|x64.Build.0 = Release|Any CPU
 		{F3228F36-BD42-48C2-9F84-201F7424B511}.Release|x86.ActiveCfg = Release|Any CPU
 		{F3228F36-BD42-48C2-9F84-201F7424B511}.Release|x86.Build.0 = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|x64.Build.0 = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Debug|x86.Build.0 = Debug|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|x64.ActiveCfg = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|x64.Build.0 = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|x86.ActiveCfg = Release|Any CPU
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,5 +141,6 @@ Global
 		{AFBB71D5-BA12-4162-88C3-14DB4D82A60D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{5DC3CEF1-79E7-4F41-941B-0B50ADCA0FCC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{F3228F36-BD42-48C2-9F84-201F7424B511} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{A218A3F0-520E-477E-9E52-FDB7D9E12306} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

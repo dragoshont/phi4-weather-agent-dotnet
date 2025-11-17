@@ -4,6 +4,10 @@ using System.ClientModel;
 using Phi4WeatherAgent.Web.Components;
 using Phi4WeatherAgent.Agent.Services;
 using Phi4WeatherAgent.Agent.Tools;
+using Phi4WeatherAgent.Agent.Parsing;
+using Phi4WeatherAgent.Agent.Registry;
+using Phi4WeatherAgent.Agent.Dispatching;
+using Phi4WeatherAgent.Agent.Integration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +28,12 @@ builder.Services.AddScoped<AllergenTool>();
 // Register AgentService for conversation management (T033)
 builder.Services.AddScoped<AgentService>();
 
+// T132-T136: Register functools invocation layer services
+builder.Services.AddSingleton<IFunctoolsParser, FunctoolsParser>();
+builder.Services.AddSingleton<IToolRegistry, ToolRegistry>();
+builder.Services.AddSingleton<IToolInvoker, ToolInvoker>();
+builder.Services.AddHostedService<ToolDiscoveryService>();
+
 // Configure IChatClient with platform-specific AI provider (T034)
 // Platform detection from AppHost: Foundry Local (Windows/macOS) vs Ollama (Linux)
 // AI Model Endpoint Configuration
@@ -33,33 +43,43 @@ var aiModelEndpoint = builder.Configuration["AI_MODEL_ENDPOINT"]
         ? $"http://localhost:{Environment.GetEnvironmentVariable("FOUNDRY_PORT") ?? "63336"}/v1"
         : "http://localhost:11434");
 
+// T138: Register base IChatClient and wrap with FunctoolsChatClient decorator
 builder.Services.AddChatClient(services =>
 {
     // Platform-specific client selection:
     // - Windows/macOS: Use OpenAI client for Foundry Local (OpenAI-compatible)
     // - Linux: Use Ollama client for Ollama container
+    IChatClient baseClient;
+    
     if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
     {
-        // Foundry Local - OpenAI-compatible API
+        // Foundry Local - OpenAI-compatible API with Phi-4 mini
         var modelId = "Phi-4-mini-instruct-generic-cpu:5";
-        Console.WriteLine($"Using OpenAI client with model: {modelId}");
+        Console.WriteLine($"Using OpenAI client with Phi-4 model: {modelId}");
         Console.WriteLine($"Endpoint: {aiModelEndpoint}");
         
         var openAIClient = new OpenAIClient(new ApiKeyCredential("not-used"), new OpenAIClientOptions 
         { 
             Endpoint = new Uri(aiModelEndpoint)
         });
-        return openAIClient.GetChatClient(modelId).AsIChatClient();
+        baseClient = openAIClient.GetChatClient(modelId).AsIChatClient();
     }
     else
     {
-        // Ollama for Linux
-        var modelId = "phi4";
-        Console.WriteLine($"Using Ollama client with model: {modelId}");
-        return new OllamaChatClient(new Uri(aiModelEndpoint), modelId);
+        // Ollama for Linux with Mistral
+        var modelId = "mistral:7b-instruct";
+        Console.WriteLine($"Using Ollama client with Mistral model: {modelId}");
+        baseClient = new OllamaChatClient(new Uri(aiModelEndpoint), modelId);
     }
+
+    // Wrap base client with FunctoolsChatClient decorator to enable custom functools parsing
+    // NOTE: Phi-4-mini does NOT support native tool calling, so we use custom functools format
+    var parser = services.GetRequiredService<IFunctoolsParser>();
+    var invoker = services.GetRequiredService<IToolInvoker>();
+    var logger = services.GetRequiredService<ILogger<FunctoolsChatClient>>();
+    
+    return new FunctoolsChatClient(baseClient, parser, invoker, logger);
 })
-.UseFunctionInvocation() // Enable MCP tool calling (T051)
 .UseLogging(); // Add telemetry (T018-T020)
 
 var app = builder.Build();
@@ -69,7 +89,7 @@ app.MapGet("/test-ai", async (IChatClient chatClient) =>
 {
     try
     {
-        var response = await chatClient.GetResponseAsync("Say 'Hello from Phi-4!'");
+        var response = await chatClient.GetResponseAsync("Say 'Hello from Mistral!'");
         return Results.Ok(new { success = true, response = response.ToString(), messageCount = response.Messages.Count });
     }
     catch (Exception ex)

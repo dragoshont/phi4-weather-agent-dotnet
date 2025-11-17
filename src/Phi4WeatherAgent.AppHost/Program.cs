@@ -15,7 +15,7 @@ if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
 {
     // Foundry Local - OpenAI-compatible API (requires /v1 base path)
     // Get port from environment variable or use default
-    var foundryPort = Environment.GetEnvironmentVariable("FOUNDRY_PORT") ?? "62859";
+    var foundryPort = Environment.GetEnvironmentVariable("FOUNDRY_PORT") ?? "60613";
     aiModelEndpointUrl = $"http://localhost:{foundryPort}/v1";
 }
 else
