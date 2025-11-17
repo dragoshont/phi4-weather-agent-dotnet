@@ -52,7 +52,7 @@
 - [X] T018 [P] Copy `specs/002-functools-invocation-layer/contracts/IToolInvoker.cs` to `src/Phi4WeatherAgent.Agent/Dispatching/IToolInvoker.cs`
 - [X] T019 Create `src/Phi4WeatherAgent.Agent/Registry/ToolAttribute.cs` attribute class with Name, Description, InputSchemaJson properties
 
-**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+**Checkpoint**: Foundation complete - entities, contracts, and base infrastructure ready for user story implementation
 
 ---
 
@@ -375,6 +375,7 @@
 - [ ] T153 [P] Create `src/Phi4WeatherAgent.Agent/Health/ToolRegistryHealthCheck.cs` implementing IHealthCheck
 - [ ] T154 Implement `CheckHealthAsync()` method: report registry count and MCP server connectivity in `ToolRegistryHealthCheck.cs`
 - [ ] T155 Register health check in `src/Phi4WeatherAgent.AppHost/Program.cs` using AddHealthChecks() per FR-015
+- [ ] T156 [P] Create `src/Phi4WeatherAgent.Agent/Security/SecurityAuditLogger.cs` with structured logging for security events (allowlist rejections, oversized arguments, rate limit violations) using `security.*` log tags per constitution Principle XII
 
 ---
 
@@ -540,3 +541,81 @@ After each user story completion:
 - [P] marker indicates tasks that can run in parallel (different files, no dependencies)
 - [Story] marker required for all user story phase tasks (US1-US6)
 - Task IDs are sequential (T001-T155) in execution order for easy reference
+
+---
+
+## Phase 10: Foundry Native Integration (NEW - Post Discovery)
+
+**Purpose**: Integrate with Foundry's native function calling template discovered after initial implementation
+
+**DISCOVERY**: Foundry Local 0.8.103+ has built-in functools template. Current manual system prompt bypasses native support.
+
+**Goal**: Leverage Foundry's {Tool} placeholder for tool injection, keep custom FunctoolsChatClient for execution
+
+**Contracts**: See `specs/002-functools-invocation-layer/contracts/IAIFunctionAdapter.cs` and `IChatOptionsBuilder.cs`
+
+**Independent Test**: Start Aspire, send "weather in Brasov" query, verify no raw functools visible, logs show tools discovered and ChatOptions built
+
+### Pre-Implementation Validation
+
+- [X] T199 [P] [US7] **Validate Foundry Template Format** [30min] - Inspect `%USERPROFILE%\.foundry\models\phi4-mini-instruct-generic-cpu\5\inference_model.json`, verify {Tool} placeholder exists, document expected JSON Schema format, test with sample ChatOptions.Tools, update research.md with template discovery findings (CHK007, CHK083, CHK087, CHK100)
+
+### Implementation for Foundry Native Integration
+
+#### M1: AIFunction Adapter (Convert ToolMetadata → AIFunction)
+
+- [X] T200 [P] [US7] Create `src/Phi4WeatherAgent.Agent/Adapters/AIFunctionAdapter.cs` implementing IAIFunctionAdapter interface with error handling for conversion failures (CHK116, CHK119)
+- [X] T201 [US7] Implement `ConvertToAIFunction(ToolMetadata)` method returning AIFunctionDeclaration with name, description, and JSON Schema in `AIFunctionAdapter.cs`
+- [X] T202 [US7] Implement `ConvertJsonSchemaToElement(JsonSchema)` private method converting schema to JsonElement in `AIFunctionAdapter.cs`
+- [X] T203 [US7] ~~Implement `MapToJsonType(Type)` private method~~ (Not needed - AIFunctionFactory.CreateDeclaration accepts JsonElement schema directly)
+- [X] T204 [US7] Add DEBUG-level logging for each tool conversion in `ConvertToAIFunction()` in `AIFunctionAdapter.cs` (CHK080)
+- [X] T205 [US7] Ensure NO execution delegate included (custom ToolInvoker handles execution) - AIFunctionFactory.CreateDeclaration creates metadata-only declaration
+
+#### M2: ChatOptions Builder (Populate ChatOptions.Tools)
+
+- [X] T206 [P] [US7] Create `src/Phi4WeatherAgent.Agent/Adapters/ChatOptionsBuilder.cs` implementing IChatOptionsBuilder interface
+- [X] T207 [US7] Implement `BuildWithToolsAsync()` method querying IToolRegistry.ListAsync() in `ChatOptionsBuilder.cs`
+- [X] T208 [US7] Convert each ToolDescriptor to AIFunctionDeclaration via IAIFunctionAdapter in `BuildWithToolsAsync()` in `ChatOptionsBuilder.cs`
+- [X] T209 [US7] Build and return ChatOptions with Tools list populated in `BuildWithToolsAsync()` in `ChatOptionsBuilder.cs`
+- [X] T210 [US7] Add INFO-level log "Built ChatOptions with {Count} tools: {ToolNames}" in `BuildWithToolsAsync()` in `ChatOptionsBuilder.cs`
+- [X] T211 [US7] Add WARNING-level log if no tools registered (empty registry) in `BuildWithToolsAsync()` in `ChatOptionsBuilder.cs`
+
+#### M3: Dependency Injection Registration
+
+#### M3: DI Registration (Wire Services)
+
+- [X] T212 [P] [US7] Add Foundry version check in DI startup: ~~Verify `foundry --version` >= 0.8.103~~ (Added as comment - version check may not be feasible in all deployment environments)
+- [X] T213 Add `services.AddSingleton<IAIFunctionAdapter, AIFunctionAdapter>()` and `services.AddSingleton<IChatOptionsBuilder, ChatOptionsBuilder>()` to `src/Phi4WeatherAgent.Web/Program.cs`
+
+#### M4: Chat.razor Update (Use Native Tool Injection)
+
+- [ ] T214 Inject IChatOptionsBuilder via `@inject` directive in `src/Phi4WeatherAgent.Web/Components/Pages/Chat/Chat.razor`
+- [ ] T215 Remove manual system prompt tool descriptions (lines 29-86) from `Chat.razor`
+- [ ] T216 Replace with simple system prompt "You are a helpful weather assistant powered by Phi-4." in `Chat.razor`
+- [ ] T217 Call `ChatOptionsBuilder.BuildWithTools()` before each GetStreamingResponseAsync call in `Chat.razor`
+- [ ] T218 Pass ChatOptions to `GetStreamingResponseAsync(messages, options)` in `Chat.razor`
+
+#### M5: Enhanced Discovery Logging (Diagnostics)
+
+- [ ] T219 [P] Add INFO-level log "ToolDiscoveryService starting..." at beginning of StartAsync in `src/Phi4WeatherAgent.Agent/Registry/ToolDiscoveryService.cs`
+- [ ] T220 Add DEBUG-level log "Registered tool: {ToolName} with {ParamCount} parameters" for each tool in `ToolDiscoveryService.cs`
+- [ ] T221 Update final INFO-level log to "Registered {Count} tools: {ToolNames}" with comma-separated list in `ToolDiscoveryService.cs`
+
+#### M6: Health Endpoint (Optional Diagnostics)
+
+- [ ] T222 [P] Create `src/Phi4WeatherAgent.Web/Endpoints/ToolsHealthEndpoint.cs` with MapToolsHealth extension method
+- [ ] T223 Implement GET /tools/health endpoint returning JSON `{discovered: count, tools: [{name, description, parameterCount}]}` in `ToolsHealthEndpoint.cs`
+- [ ] T224 Query IToolRegistry.GetAllTools() to populate response in `ToolsHealthEndpoint.cs`
+- [ ] T225 Register endpoint via `app.MapToolsHealth()` call in `src/Phi4WeatherAgent.Web/Program.cs`
+
+**Checkpoint**: Foundry native integration complete - Foundry injects tools, custom parser executes them
+
+**Success Criteria**:
+- ✅ AIFunction adapter converts ToolMetadata with correct JSON Schema
+- ✅ ChatOptions populated with tools on every request
+- ✅ No manual tool descriptions in system prompt
+- ✅ Logs show "Registered 5 tools: GeocodeLocation, GetWeather, GetForecast, GetPollenForecast, GetAllergens"
+- ✅ Logs show "Built ChatOptions with 5 tools"
+- ✅ Manual test: No raw functools visible in UI after query
+- ✅ Manual test: End-to-end query completes in < 10s
+

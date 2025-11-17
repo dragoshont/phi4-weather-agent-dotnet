@@ -1,8 +1,10 @@
 # Quickstart: Add Your First Custom Tool
 
-**Goal**: Create a simple "Hello World" tool and verify Phi-4-mini can invoke it through the functools invocation layer.
+**Goal**: Create a simple tool and verify Phi-4-mini can invoke it using Foundry's native function calling.
 
 **Time to Complete**: ~10 minutes
+
+**Key Discovery**: Foundry Local 0.8.103+ has native functools support. You just add the `[Tool]` attribute - no manual JSON schema needed!
 
 ---
 
@@ -11,88 +13,74 @@
 Before starting, ensure you have:
 
 - ✅ .NET 10 SDK (10.0.100+) installed
-- ✅ Foundry Local service running (`foundry service status` should show "Running")
+- ✅ Foundry Local 0.8.103+ running (`foundry --version`)
 - ✅ Aspire workload installed (`dotnet workload list` should show `aspire`)
-- ✅ Phi-4-mini model downloaded (`foundry model list | Select-String "Phi-4-mini"`)
+- ✅ Phi-4-mini model downloaded (`foundry model list` → "Phi-4-mini-instruct-generic-cpu:5")
 - ✅ Project repository cloned and at root directory
 
 ---
 
 ## Step 1: Create the Tool Class
 
-Create a new file `src/Phi4WeatherAgent.Tools/HelloWorldTools.cs`:
+Create a new file `src/Phi4WeatherAgent.Tools/Greetings/SayHelloTool.cs`:
 
 ```csharp
-using Phi4WeatherAgent.Tools;
+using Phi4WeatherAgent.Agent.Attributes;
+using Phi4WeatherAgent.Agent.Models;
 
-namespace Phi4WeatherAgent.Tools;
+namespace Phi4WeatherAgent.Tools.Greetings;
 
-/// <summary>
-/// Example tools for quickstart demonstration.
-/// </summary>
-public class HelloWorldTools
+[Tool(
+    Name = "SayHello",
+    Description = "Greets a person by name with a friendly message"
+)]
+public class SayHelloTool : IWeatherTool
 {
-    /// <summary>
-    /// Says hello to a person by name.
-    /// </summary>
-    /// <param name="name">Name of the person to greet</param>
-    /// <returns>Personalized greeting message</returns>
-    [Tool("SayHello", 
-        Description = "Greets a person by name", 
-        InputSchemaJson = @"{
-            ""type"": ""object"",
-            ""properties"": {
-                ""name"": { 
-                    ""type"": ""string"", 
-                    ""description"": ""Name of person to greet"",
-                    ""maxLength"": 50
-                }
-            },
-            ""required"": [""name""]
-        }")]
-    public string SayHello(string name)
+    private readonly ILogger<SayHelloTool> _logger;
+    
+    public SayHelloTool(ILogger<SayHelloTool> logger)
     {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ArgumentException("Name cannot be empty", nameof(name));
-        }
-        
-        return $"Hello, {name}! Welcome to the Phi-4 Weather Assistant with custom tool support!";
+        _logger = logger;
     }
     
-    /// <summary>
-    /// Adds two numbers together.
-    /// Demonstrates tools can perform computations.
-    /// </summary>
-    [Tool("Add",
-        Description = "Adds two numbers",
-        InputSchemaJson = @"{
-            ""type"": ""object"",
-            ""properties"": {
-                ""a"": { ""type"": ""number"", ""description"": ""First number"" },
-                ""b"": { ""type"": ""number"", ""description"": ""Second number"" }
-            },
-            ""required"": [""a"", ""b""]
-        }")]
-    public int Add(int a, int b)
+    [ToolParameter(
+        Name = "name",
+        Description = "Name of the person to greet",
+        IsRequired = true
+    )]
+    public string Name { get; set; } = string.Empty;
+    
+    public async Task<ToolResult> ExecuteAsync(CancellationToken cancellationToken)
     {
-        return a + b;
+        _logger.LogInformation("Greeting {Name}", Name);
+        
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            return ToolResult.Error("Name cannot be empty");
+        }
+        
+        var greeting = $"Hello, {Name}! Welcome to Phi-4 Weather Assistant with native function calling!";
+        
+        return ToolResult.Success(greeting);
     }
 }
 ```
 
 **What's happening here?**
 
-- The `[Tool("SayHello")]` attribute marks the method for automatic discovery
-- `InputSchemaJson` provides JSON Schema for argument validation (optional but recommended)
-- Method parameters are automatically mapped from JSON arguments
-- Return value is serialized and sent back to the model
+1. **`[Tool]` attribute**: Marks class for automatic discovery by ToolDiscoveryService
+2. **`[ToolParameter]` attributes**: Define parameters - no manual JSON schema needed!
+3. **`IWeatherTool` interface**: Standard interface for all tools (provides `ExecuteAsync`)
+4. **`ToolResult.Success/Error`**: Strongly-typed results returned to model
+5. **DI support**: Constructor injection works automatically
+
+**Zero additional configuration required!**
 
 ---
 
 ## Step 2: Restart the Application
 
-The invocation layer automatically discovers tools at startup. Restart Aspire AppHost:
+The invocation layer automatically discovers tools at startup:
 
 ```powershell
 # Stop any running instances

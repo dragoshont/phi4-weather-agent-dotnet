@@ -61,6 +61,85 @@ if (!results.IsValid)
 }
 ```
 
+## Foundry Native Function Calling Template
+
+### Discovery (2025-11-17)
+
+**Template Location**: `%USERPROFILE%\.foundry\cache\models\Microsoft\Phi-4-mini-instruct-generic-cpu-5\v5\inference_model.json`  
+**Model Version**: Phi-4-mini-instruct-generic-cpu:5  
+**Foundry Version**: 0.8.103+
+
+### Template Structure
+
+```json
+{
+  "Name": "Phi-4-mini-instruct-generic-cpu:5",
+  "PromptTemplate": {
+    "system": "<|system|>{Content}<|tool|>{Tool}<|/tool|><|end|>",
+    "user": "<|user|>{Content}<|end|>",
+    "assistant": "<|assistant|>{Content}<|end|>",
+    "tool": "<|tool|>{Tool}<|/tool|>",
+    "prompt": "<|system|> You are a helpful assistant with these tools. If you decide to call functions:\n* prefix function calls with functools marker (no closing marker required)\n* all function calls should be generated in a single JSON list formatted as functools[{\"name\": [function name], \"arguments\": [function arguments as JSON]}, ...]\n  * follow the provided JSON schema. Do not hallucinate arguments or values. Do not blindly copy values from the provided samples\n  * respect the argument type formatting. E.g., if the type is number and format is float, write value 7 as 7.0\n  * make sure you pick the right functions that match the user intent<|end|><|user|>{Content}<|end|><|assistant|>"
+  }
+}
+```
+
+### Key Findings
+
+1. **{Tool} Placeholder Confirmed**: System template includes `{Tool}` placeholder injection point
+2. **Functools Syntax**: Model expects `functools[{"name": ..., "arguments": ...}, ...]` format
+3. **JSON Schema Expected**: Template instructions mention "follow the provided JSON schema"
+4. **OpenAI-Compatible Format**: Based on data-model.md analysis, {Tool} expects array of AIFunction objects
+5. **Injection Location**: Tools injected in system prompt via `<|tool|>{Tool}<|/tool|>` tags
+
+### Expected Tool Format
+
+The {Tool} placeholder should be replaced with JSON array:
+
+```json
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "GetWeather",
+      "description": "Retrieves current weather for a location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City name or coordinates"
+          },
+          "units": {
+            "type": "string",
+            "enum": ["metric", "imperial"],
+            "description": "Temperature unit system"
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  }
+]
+```
+
+### Validation Status
+
+- ✅ **{Tool} placeholder exists** in system template (CHK007)
+- ✅ **Template format stable** and documented (CHK083)
+- ✅ **JSON Schema expectation confirmed** (CHK087)
+- ✅ **Functools syntax documented** in template instructions (CHK100)
+- ✅ **Foundry version verified** (0.8.103+ required per spec.md FR-020)
+
+### Integration Implications
+
+1. **No Manual Prompts**: Foundry handles tool injection automatically via {Tool} placeholder
+2. **ChatOptions.Tools Required**: Must populate `ChatOptions.Tools` with AIFunction objects
+3. **OpenAI Format**: AIFunction must match OpenAI function calling schema structure
+4. **Custom Parser Still Needed**: Foundry injects tools, but custom FunctoolsChatClient still parses and executes functools responses
+
+---
+
 ## MCP Protocol Details
 
 ### Decision

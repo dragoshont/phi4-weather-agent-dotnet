@@ -42,9 +42,13 @@ public class FunctoolsChatClientIntegrationTests
     [Fact]
     public async Task PollenQuery_Austin_ShouldNotShowFunctoolsInResponse()
     {
-        // Arrange - Mock the inner chat client to simulate Phi-4 model response
-        var modelResponse = "To get pollen levels in Austin, I'll first need to geocode the location.\nfunctools[{\"name\":\"GeocodeLocation\",\"arguments\":{\"location\":\"Austin, Texas\"}}]";
-        var mockClient = new MockStreamingChatClient(modelResponse);
+        // Arrange - Mock the inner chat client to simulate Phi-4 model responses
+        var firstResponse = "To get pollen levels in Austin, I'll first need to geocode the location.\nfunctools[{\"name\":\"GeocodeLocation\",\"arguments\":{\"location\":\"Austin, Texas\"}}]";
+        
+        // Second response after tool execution (model should NOT generate functools again)
+        var secondResponse = "I apologize, but I was unable to geocode Austin, Texas. The geocoding service may be unavailable.";
+        
+        var mockClient = new MockStreamingChatClient(firstResponse, secondResponse);
         
         var parser = new FunctoolsParser();
         var registry = new ToolRegistry();
@@ -70,16 +74,14 @@ public class FunctoolsChatClientIntegrationTests
         
         var finalResponse = responseText.ToString();
         
-        Console.WriteLine($"Final response shown to user:\n{finalResponse}");
+        Console.WriteLine($"\n=== Final response shown to user ===\n{finalResponse}\n");
         
         // Assert - functools should NOT appear in the response
         Assert.DoesNotContain("functools[", finalResponse);
         Assert.DoesNotContain("GeocodeLocation", finalResponse);
         
-        // The response should either be:
-        // 1. Empty (if tools execute but model doesn't generate follow-up)
-        // 2. Natural language (if model generates response after tool execution)
-        // It should NOT contain raw functools syntax
+        // The response should be natural language from the second call
+        Assert.Contains("unable to geocode", finalResponse);
     }
 
     /// <summary>
@@ -90,8 +92,12 @@ public class FunctoolsChatClientIntegrationTests
     public async Task WeatherQuery_Atlanta_ShouldNotHallucinateCoordinates()
     {
         // Arrange - Mock model response with hallucinated coordinates
-        var modelResponse = "functools[{\"name\":\"GetPollenForecast\",\"arguments\":{\"latitude\":33.6407,\"longitude\":-84.2772}}]";
-        var mockClient = new MockStreamingChatClient(modelResponse);
+        var firstResponse = "functools[{\"name\":\"GetPollenForecast\",\"arguments\":{\"latitude\":33.6407,\"longitude\":-84.2772}}]";
+        
+        // Second response after tool fails (no coordinates provided, so tool should fail)
+        var secondResponse = "I apologize, but I cannot get pollen forecast data without valid coordinates. Please provide a location name so I can geocode it first.";
+        
+        var mockClient = new MockStreamingChatClient(firstResponse, secondResponse);
         
         var parser = new FunctoolsParser();
         var registry = new ToolRegistry();
@@ -116,11 +122,14 @@ public class FunctoolsChatClientIntegrationTests
         
         var finalResponse = responseText.ToString();
         
-        Console.WriteLine($"Final response shown to user:\n{finalResponse}");
+        Console.WriteLine($"\n=== Final response shown to user ===\n{finalResponse}\n");
         
         // Assert - functools should NOT appear in response
         Assert.DoesNotContain("functools[", finalResponse);
         Assert.DoesNotContain("GetPollenForecast", finalResponse);
+        
+        // The response should acknowledge the error
+        Assert.Contains("cannot get pollen forecast", finalResponse);
         
         // This test demonstrates the model hallucinating coordinates
         // System prompt needs to be clearer about always geocoding first
@@ -285,14 +294,18 @@ functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Brasov""}}
 
 /// <summary>
 /// Mock IChatClient that returns predefined streaming responses.
+/// Supports multiple responses for simulating re-prompting after tool execution.
 /// </summary>
 internal class MockStreamingChatClient : IChatClient
 {
     private readonly string _response;
+    private int _callCount = 0;
+    private readonly string? _secondResponse;
 
-    public MockStreamingChatClient(string response)
+    public MockStreamingChatClient(string response, string? secondResponse = null)
     {
         _response = response;
+        _secondResponse = secondResponse;
     }
 
     public void Dispose() { }
@@ -305,7 +318,9 @@ internal class MockStreamingChatClient : IChatClient
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _response)));
+        var responseText = _callCount == 0 ? _response : (_secondResponse ?? _response);
+        _callCount++;
+        return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, responseText)));
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -313,11 +328,15 @@ internal class MockStreamingChatClient : IChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // Return different response on second call (after re-prompt)
+        var responseText = _callCount == 0 ? _response : (_secondResponse ?? _response);
+        _callCount++;
+        
         // Simulate streaming by breaking response into chunks
         var chunkSize = 10;
-        for (int i = 0; i < _response.Length; i += chunkSize)
+        for (int i = 0; i < responseText.Length; i += chunkSize)
         {
-            var chunk = _response.Substring(i, Math.Min(chunkSize, _response.Length - i));
+            var chunk = responseText.Substring(i, Math.Min(chunkSize, responseText.Length - i));
             yield return new ChatResponseUpdate 
             { 
                 Contents = [new TextContent(chunk)] 

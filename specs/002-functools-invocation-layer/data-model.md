@@ -1,20 +1,97 @@
 # Data Model: Functools Invocation Layer
 
 **Branch**: 002-functools-invocation-layer  
-**Date**: 2025-11-16  
-**Purpose**: Define core entities for parsing, registering, and invoking tools
+**Date**: 2025-11-17 (Updated after Foundry native support discovery)  
+**Purpose**: Define core entities for tool registration, conversion to AIFunction, and execution
 
 ## Entity Relationship Diagram
 
 ```
-┌──────────────┐         ┌─────────────────┐         ┌──────────────┐
-│ FunctionCall │ ───────▶│ ToolDescriptor  │◀────────│  ToolResult  │
-└──────────────┘ lookup  └─────────────────┘ result  └──────────────┘
-      │                           │                           │
-      │                           │                           │
-  Parsed from              Registered in               Returned to
-  functools block          ToolRegistry                model
+┌──────────────────┐   register   ┌──────────────────┐   convert   ┌─────────────┐
+│  ToolMetadata    │─────────────▶│  ToolRegistry    │─────────────▶│ AIFunction  │
+│  (from [Tool]    │              │  (discovered at  │             │ (passed to  │
+│   attributes)    │              │   startup)       │             │  Foundry)   │
+└──────────────────┘              └──────────────────┘             └─────────────┘
+        │                                  │                              │
+        │                                  │                              │
+    Discovered by                      Queried by                    Injected into
+ ToolDiscoveryService              ChatOptionsBuilder              {Tool} placeholder
+        │                                  │                              │
+        │                                  │                              │
+        └──────────────────────────────────┴──────────────────────────────┘
+                                           │
+                                           ▼
+                                  ┌─────────────────┐
+                                  │  FunctionCall   │ (parsed from model response)
+                                  │  (functools     │
+                                  │   syntax)       │
+                                  └─────────────────┘
+                                           │
+                                           │ execute via
+                                           ▼
+                                  ┌─────────────────┐
+                                  │   ToolResult    │ (returned to model)
+                                  └─────────────────┘
 ```
+
+## Foundry Template Integration
+
+### AIFunction Schema Format
+
+**Purpose**: Define expected JSON Schema format for Foundry's {Tool} placeholder injection
+
+**Foundry Template Structure** (from inference_model.json):
+```
+{Tool} placeholder expects array of objects:
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "string",
+      "description": "string",
+      "parameters": {
+        "type": "object",
+        "properties": { ... },
+        "required": [ ... ]
+      }
+    }
+  }
+]
+```
+
+**Example AIFunction** (GetWeather tool):
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "GetWeather",
+    "description": "Retrieves current weather for a location",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "City name or coordinates"
+        },
+        "units": {
+          "type": "string",
+          "enum": ["metric", "imperial"],
+          "description": "Temperature unit system"
+        }
+      },
+      "required": ["location"]
+    }
+  }
+}
+```
+
+**Template Placeholder Semantics**:
+- **{Tool}**: Replaced by Foundry with JSON array of function definitions from ChatOptions.Tools
+- **Injection Point**: System prompt template before user message
+- **Format Validation**: Foundry expects OpenAI function calling schema format
+- **Version Requirement**: Available in Foundry Local 0.8.103+ with Phi-4-mini-instruct-generic-cpu:5 model
+
+---
 
 ## Core Entities
 
@@ -329,6 +406,167 @@ Configuration (MCP server URLs, tool allowlist) stored in `appsettings.tools.jso
 - **ToolDescriptor**: Long-lived (registered at startup, exists for app lifetime)
 - **ToolResult**: Small (typically <10KB response), short-lived (GC collects after message formatting)
 - **Total Memory**: ~50 tools × ~1KB descriptor = ~50KB registry overhead (negligible)
+
+---
+
+## New Entities: Foundry Native Integration
+
+### 5. AIFunctionAdapter
+
+**Purpose**: Convert `ToolMetadata` to `AIFunction` format expected by Foundry's `{Tool}` placeholder
+
+**Properties**:
+
+| Name | Type | Nullable | Description |
+|------|------|----------|-------------|
+| `_logger` | `ILogger<AIFunctionAdapter>` | ❌ | Logger for conversion diagnostics |
+
+**Methods**:
+
+```csharp
+AIFunction ConvertToAIFunction(ToolMetadata tool);
+JsonElement GenerateJsonSchema(IReadOnlyList<ToolParameterMetadata> parameters);
+string MapToJsonType(Type dotnetType);
+```
+
+**Responsibilities**:
+
+1. Convert `ToolMetadata` → `AIFunction` with JSON Schema
+2. Map .NET parameter types → JSON Schema types
+3. Mark required parameters in schema
+4. Do NOT include execution delegate (we use custom ToolInvoker)
+
+**Example Conversion**:
+
+Input (`ToolMetadata`):
+
+```csharp
+new ToolMetadata
+{
+    Name = "GeocodeLocation",
+    Description = "Convert location to coordinates",
+    Parameters = new[]
+    {
+        new ToolParameterMetadata
+        {
+            Name = "location",
+            Type = typeof(string),
+            Description = "Location name or address",
+            IsRequired = true
+        },
+        new ToolParameterMetadata
+        {
+            Name = "count",
+            Type = typeof(int),
+            Description = "Max results",
+            IsRequired = false
+        }
+    }
+}
+```
+
+Output (`AIFunction`):
+
+```csharp
+new AIFunction
+{
+    Name = "GeocodeLocation",
+    Description = "Convert location to coordinates",
+    Metadata = new AIFunctionMetadata
+    {
+        Name = "GeocodeLocation",
+        Description = "Convert location to coordinates",
+        JsonSchemaElement = JsonElement.Parse(@"{
+            ""type"": ""object"",
+            ""properties"": {
+                ""location"": {
+                    ""type"": ""string"",
+                    ""description"": ""Location name or address""
+                },
+                ""count"": {
+                    ""type"": ""number"",
+                    ""description"": ""Max results""
+                }
+            },
+            ""required"": [""location""],
+            ""additionalProperties"": false
+        }")
+    }
+}
+```
+
+**Type Mapping**:
+
+| .NET Type | JSON Schema Type | Notes |
+|-----------|------------------|-------|
+| `string` | `"string"` | |
+| `int`, `long`, `decimal`, `double`, `float` | `"number"` | |
+| `bool` | `"boolean"` | |
+| `DateTime`, `DateTimeOffset` | `"string"` | Add `format: "date-time"` |
+| `Guid` | `"string"` | Add `format: "uuid"` |
+| `IEnumerable<T>` | `"array"` | Recursively map `T` for `items` |
+| Custom classes | `"object"` | Recursively generate nested schema |
+
+**Validation Rules**:
+
+- Schema must be valid JSON Schema Draft 2020-12
+- All required parameters must be in `required` array
+- `additionalProperties: false` prevents hallucinated parameters
+
+**State Transitions**: Stateless (pure function)
+
+### 6. ChatOptionsBuilder
+
+**Purpose**: Build `ChatOptions` with all registered tools for each chat request
+
+**Properties**:
+
+| Name | Type | Nullable | Description |
+|------|------|----------|-------------|
+| `_toolRegistry` | `IToolRegistry` | ❌ | Registry to query for all tools |
+| `_adapter` | `IAIFunctionAdapter` | ❌ | Adapter to convert tools to AIFunctions |
+| `_logger` | `ILogger<ChatOptionsBuilder>` | ❌ | Logger for build diagnostics |
+
+**Methods**:
+
+```csharp
+ChatOptions BuildWithTools();
+```
+
+**Responsibilities**:
+
+1. Query `IToolRegistry.GetAllTools()` for discovered tools
+2. Convert each `ToolMetadata` to `AIFunction` via adapter
+3. Build `ChatOptions` with tools list
+4. Log tool count for diagnostics
+
+**Example Usage**:
+
+```csharp
+// In Chat.razor
+@inject IChatOptionsBuilder ChatOptionsBuilder
+
+private async Task SendMessage()
+{
+    var options = ChatOptionsBuilder.BuildWithTools();
+    // options.Tools contains 5 AIFunctions (if 5 tools registered)
+    
+    await foreach (var update in ChatClient.GetStreamingResponseAsync(messages, options))
+    {
+        // FunctoolsChatClient intercepts functools and executes
+    }
+}
+```
+
+**Validation Rules**:
+
+- Must have at least 1 tool registered (warn if empty)
+- All tools must convert successfully (log error if conversion fails)
+- Tools list must be immutable after build
+
+**State Transitions**: Stateless (builds new ChatOptions each call)
+
+**Performance**: Fast (<5ms for 50 tools) - conversion is cheap, no reflection after initial discovery
 
 ## Extensibility
 

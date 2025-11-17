@@ -1,13 +1,11 @@
 <!--
 Sync Impact Report:
-- Version: 1.0.0 → 1.2.0 (MINOR bump: expanded principle XII with project scope)
+- Version: 1.0.0 → 1.3.0 (MINOR bump: expanded Principle III and XII with Foundry native discovery)
 - Principles Modified:
-  • III. Agent Framework Only → Exception added for custom Phi-4 functools parser
-  • V. Model Context Protocol → Expanded to include invocation layer integration
-  • XII. Custom Invocation Layer → Expanded with project scope, non-goals, success criteria
-- Principles Added:
-  • XII. Custom Invocation Layer → New principle for Phi-4-mini functools parsing (v1.1.0)
-  • Project-specific guidance added: correctness-first, schema-validated, secure-by-default
+  • III. Agent Framework Only → Updated with Foundry ChatOptions.Tools hybrid approach
+  • V. Model Context Protocol → Clarified invocation layer integration details  
+  • XII. Custom Invocation Layer → Expanded with Foundry native template findings and security audit requirement
+- Principles Added: None
 - Principles Renamed: None
 - Sections Removed: None
 - Templates Status:
@@ -68,15 +66,24 @@ Sync Impact Report:
 - `Microsoft.SemanticKernel.Agents`
 - Any Semantic Kernel extensions
 
-**Exception for Phi-4-mini**:
-Phi-4-mini outputs function calls in custom `functools[...]` text format instead of OpenAI's structured `tool_calls`. A **custom invocation layer** is permitted to:
-1. Parse `functools[{"name": "...", "arguments": {...}}]` from model responses
-2. Dispatch to registered MCP tools and local C# methods
-3. Format tool results as `tool` role messages for re-prompting
+**Exception for Phi-4-mini Hybrid Approach** (Updated v1.3.0):
+Phi-4-mini outputs function calls in custom `functools[...]` text format. A **hybrid invocation layer** is required:
 
-This layer MUST integrate with Agent Framework's IChatClient abstraction and maintain observability through structured logging.
+1. **Foundry injects tools** (MUST): Pass tools via `ChatOptions.Tools` API → Foundry uses native template with `{Tool}` placeholder → Automatic functools format instructions in system prompt
+2. **Custom parser executes tools** (MUST): FunctoolsChatClient intercepts responses → Parse functools syntax → Dispatch to ToolRegistry → Format results as tool messages
+3. **Zero-code extensibility** (MUST): Add `[Tool]` attribute or MCP server URL → Automatic discovery and injection
 
-**Rationale**: Agent Framework is .NET 10's native AI abstraction. Mixing it with Semantic Kernel creates architectural confusion, duplicated patterns, and maintenance burden. Custom parsing is unavoidable for Phi-4-mini but must remain minimal and well-tested.
+**Key Components**:
+- `IAIFunctionAdapter`: Converts ToolRegistry → AIFunction for Foundry
+- `IChatOptionsBuilder`: Populates ChatOptions.Tools before each request
+- `FunctoolsChatClient`: IChatClient decorator for parsing and execution
+- `ToolInvoker`: Dispatcher with validation, timeout, error handling
+
+This hybrid approach MUST integrate with Agent Framework's IChatClient abstraction and maintain observability through structured logging.
+
+**Discovery** (2025-11-17): Foundry Local 0.8.103+ includes native functools template at `~/.foundry/cache/models/.../inference_model.json`. The `{Tool}` placeholder expects ChatOptions.Tools, enabling native injection while custom execution layer remains necessary for dispatch.
+
+**Rationale**: Agent Framework is .NET 10's native AI abstraction. Mixing it with Semantic Kernel creates architectural confusion. Foundry's native injection reduces prompt engineering overhead while custom execution maintains security controls.
 
 ### IV. Aspire 13 Orchestration
 **Use .NET Aspire 13 preview** for orchestration, service discovery, and observability.
@@ -302,7 +309,11 @@ This layer MUST integrate with Agent Framework's IChatClient abstraction and mai
 - Registry lookup: <1μs per tool name (concurrent dictionary access)
 
 **Security Constraints (Secure-By-Default):**
-- **Tool Whitelist**: MUST be explicit (reject unknown tools by default, log attempts)
+- **Tool Whitelist**: MUST be explicit in `appsettings.tools.json` (reject unknown tools by default, log attempts)
+- **Security Audit Logging**: MUST emit structured logs for security events with `security.*` tags:
+  - `security.allowlist_rejection`: Unknown tool invocation attempts (tool_name, correlation_id, timestamp)
+  - `security.validation_failure`: Oversized arguments >10MB (tool_name, argument_size, correlation_id)
+  - `security.rate_limit_exceeded`: Rate limit violations (tool_name, conversation_id, attempt_count)
 - **Argument Sanitization**: Validate against JSON Schema, reject oversized inputs (>10MB per argument)
 - **No Dynamic Code Execution**: Forbidden: `eval`, reflection for arbitrary types, deserialization to `object`
 - **Rate Limiting**: Max 10 tool calls per conversation turn (prevent infinite loops, DoS attacks)

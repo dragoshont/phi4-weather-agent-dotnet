@@ -1,147 +1,102 @@
-# Implementation Plan: Phi-4-mini Functools Invocation Layer
+# Implementation Plan: Foundry Native Function Calling Integration
 
-**Branch**: `002-functools-invocation-layer` | **Date**: 2025-11-16 | **Spec**: [spec.md](./spec.md)  
-**Input**: Feature specification from `/specs/002-functools-invocation-layer/spec.md`
+**Branch**: `002-functools-invocation-layer` | **Date**: 2025-11-17 | **Spec**: [spec.md](./spec.md)
+**Input**: Leverage Foundry Local's native function calling support with Phi-4-mini
+
+**CRITICAL DISCOVERY**: Foundry Local 0.8.103+ has built-in function calling template for Phi-4-mini using `functools[...]` syntax. Current implementation uses custom parsing which works but bypasses Foundry's native tool injection.
 
 ## Summary
 
-Build a robust invocation layer to parse Phi-4-mini's custom `functools[...]` text format and execute MCP/local tools with zero-code extensibility. The system provides a correctness-first parser, secure-by-default dispatcher with explicit whitelisting, horizontally scalable tool registry using ConcurrentDictionary, and MCP adapter with Polly retry policies. Observability is achieved through OpenTelemetry integration with Aspire Dashboard. The architecture enables tool addition via `[Tool]` attributes or MCP server URLs without modifying parser/dispatcher code.
+**Primary Requirement**: Integrate with Foundry's native function calling by passing tools via Microsoft.Extensions.AI ChatOptions.Tools API, allowing Foundry to inject tool definitions into Phi-4's prompt template automatically.
 
-**Key Milestones:**
-- **M1**: Parser (streaming detection, JSON deserialization, error handling)
-- **M2**: Dispatcher + Registry (manifest-based + attribute discovery, validation, allowlist)
-- **M3**: Telemetry + Policies (OpenTelemetry traces/metrics, Polly timeouts/retries)
-- **M4**: MCP Bridge (ListTools discovery, CallTool translation to ToolDescriptor)
-- **M5**: Conversation Glue (IChatClient integration, tool message formatting)
-- **M6**: Aspire Wiring + E2E + Benchmarks (DI registration, end-to-end tests, performance validation)
+**Hybrid Approach** (Constitutional Principle III):
+1. **Foundry injects tools** → Pass AIFunctions via ChatOptions.Tools, Foundry uses native template with {Tool} placeholder
+2. **Custom parser executes tools** → FunctoolsChatClient intercepts functools responses, ToolInvoker dispatches to registered handlers
+3. **Zero-code extensibility** → Add [Tool] attribute or MCP server → automatic discovery and injection
 
-**Risks & Mitigations:**
-- **Model Format Drift**: Phi-4-mini changes functools syntax → Mitigation: Comprehensive parser tests with fuzzing, version detection
-- **AOT Constraints**: Reflection-based tool discovery incompatible with Native AOT → Mitigation: Optional source generator path (deferred to Phase 2)
-- **MCP Outages**: Network failures during discovery/invocation → Mitigation: Local fallback registry, circuit breaker pattern
+**Technical Approach**:
+
+1. Convert attribute-based `[Tool]` annotations to Microsoft.Extensions.AI `AIFunction` objects
+2. Pass AIFunctions via `ChatOptions.Tools` to Foundry
+3. Foundry's template injects tools into `{Tool}` placeholder with proper functools format instructions
+4. Keep custom FunctoolsChatClient for parsing responses and executing tools (still needed - model generates functools, we parse and execute)
+5. Remove manual system prompt tool descriptions (Foundry handles this)
 
 ## Technical Context
 
-**Language/Version**: C# 13 / .NET 10.0 SDK (10.0.100, pinned in global.json)  
-**Primary Dependencies**: 
-  - Microsoft.Extensions.AI 10.0.0-preview.1.25071.7+ (Agent Framework)
-  - Aspire.Hosting 13.0.0-preview.1+ (orchestration)
-  - System.Text.Json (built-in, parser/serialization)
-  - JsonSchema.Net (argument validation, research needed for version)
-  - Polly 8.5.0+ (resilience policies)
-  - OpenTelemetry.Extensions.Hosting + OpenTelemetry.Instrumentation.AspNetCore (telemetry)
+**Language/Version**: .NET 10.0 (non-negotiable per constitution)
+**Primary Dependencies**:
 
-**Storage**: N/A (in-memory tool registry, no persistent state)  
+- Microsoft.Extensions.AI v10.0.0-preview (IChatClient, AIFunction, ChatOptions.Tools)
+- Microsoft.Extensions.AI.OpenAI v10.0.0-preview (OpenAI client for Foundry)
+- Foundry Local 0.8.103+ (native function calling template for Phi-4-mini)
 
-**Testing**: 
-  - xUnit 2.9.2+ (unit/integration tests)
-  - FluentAssertions 6.12.1+ (readable assertions)
-  - BenchmarkDotNet 0.14.0+ (performance validation)
-  - TestContainers (mock MCP servers for integration tests)
+**AI Model**: Phi-4-mini-instruct-generic-cpu:5 via Foundry Local
+**Storage**: In-memory ToolRegistry (ConcurrentDictionary), no persistent storage
+**Testing**: xUnit 2.9.3, integration tests with mock IChatClient
+**Target Platform**: Windows (Foundry), macOS (Foundry), Linux (Ollama - future)
+**Project Type**: .NET Aspire distributed application (Web + Agent projects)
+**Performance Goals**:
 
-**Target Platform**: Cross-platform (Windows/macOS/Linux with platform-specific model hosting)  
+- Tool discovery: < 500ms at startup
+- Functools parsing: < 10ms per response
+- Tool execution: < 5000ms (weather API dependent)
+- End-to-end: < 10s for single tool call
 
-**Project Type**: Web application (Blazor Server frontend + Aspire AppHost orchestration)  
+**Constraints**:
 
-**Performance Goals**: 
-  - Parser: <50ms for 1MB functools block (NFR-001)
-  - Dispatcher validation: <5ms per tool call (NFR-002)
-  - Registry lookup: <1μs per tool name (NFR-003)
-  - Total invocation overhead: <50ms excluding tool execution (NFR-004)
-  - Startup: <5 seconds with 50 registered tools (SC-012)
+- Zero-code extensibility (add [Tool] attribute → auto-discovery)
+- Local-first AI (no cloud API calls)
+- Aspire telemetry integration (OpenTelemetry traces)
 
-**Constraints**: 
-  - Zero runtime reflection for AOT compatibility (optional Source Generator path, NFR-010)
-  - Explicit tool whitelist (security constraint, Principle XII)
-  - Rate limiting: Max 10 tool calls per turn (security constraint)
-  - Argument validation: Max 10MB per argument (security constraint)
-  - Thread-safe registry: Concurrent tool registration/lookup (NFR-006)
-  - Memory: Zero leaks over 1000 invocations (NFR-009)
-
-**Scale/Scope**: 
-  - 50+ tools at startup (local + MCP discovered)
-  - 100 concurrent tool invocations (stress test, SC-011)
-  - 1000+ tool invocations per session (memory leak test)
-  - 6 user stories, 26 requirements, 18 acceptance scenarios
+**Scale/Scope**: 5-10 tools initially, extensible to 50+ tools
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Principle I: Local-First AI
-**Status**: ✅ PASS  
-**Verification**: Feature spec makes no changes to model hosting. Phi-4-mini remains on Foundry Local (Windows/macOS) or Ollama (Linux). Zero cloud AI dependencies introduced.
+### ✅ PASS: Local-First AI (Principle I)
 
-### Principle II: .NET 10 Requirement
-**Status**: ✅ PASS  
-**Verification**: All new code targets `net10.0` framework. Dependencies use .NET 10 preview packages (Microsoft.Extensions.AI 10.0.0-preview.1+, Aspire 13.0.0-preview.1+). No .NET 9 or earlier references.
+- Foundry Local 0.8.103 confirmed running locally
+- Phi-4-mini-instruct-generic-cpu:5 model deployed
+- No cloud API dependencies
 
-### Principle III: Agent Framework Only
-**Status**: ✅ PASS (with approved exception)  
-**Verification**: Custom functools parser integrates with `IChatClient` abstraction from Microsoft.Extensions.AI. No Semantic Kernel packages introduced. Exception explicitly documented in Principle III for Phi-4-mini's custom format parsing.
+### ✅ PASS: .NET 10 Requirement (Principle II)
 
-### Principle IV: Aspire 13 Orchestration
-**Status**: ✅ PASS  
-**Verification**: Tool registry and MCP adapter integrate with Aspire DI container. OpenTelemetry instrumentation integrates with Aspire Dashboard. No changes to orchestration model.
+- Project uses .NET 10.0 SDK
+- Microsoft.Extensions.AI preview packages compatible
 
-### Principle V: Model Context Protocol (MCP)
-**Status**: ✅ PASS  
-**Verification**: MCP adapter (M4) implements `ListTools` discovery and tool invocation via MCP protocol. Requirement FR-004 explicitly mandates MCP integration. User Story 2 validates zero-code MCP extensibility.
+### ⚠️ REVIEW: Agent Framework Constraint (Principle III)
 
-### Principle VI: Blazor Server UI
-**Status**: ✅ PASS  
-**Verification**: No changes to UI layer. Feature operates in backend services consumed by existing Blazor components.
+- **Current**: Hybrid approach - Foundry injects tools via ChatOptions.Tools, custom parser executes them
+- **Justification**: Phi-4 uses custom `functools[...]` syntax - Foundry 0.8.103+ has native template for INJECTION, but we need custom parser for EXECUTION
+- **Discovery**: Foundry's {Tool} placeholder expects ChatOptions.Tools → native template injection works perfectly
+- **Implementation**: IAIFunctionAdapter converts ToolRegistry → AIFunction, IChatOptionsBuilder populates ChatOptions.Tools
+- **Status**: APPROVED - Hybrid approach leverages Foundry native injection while maintaining custom execution layer per Principle III exception
 
-### Principle VII: Zero Cost Operations
-**Status**: ✅ PASS  
-**Verification**: All tools run locally or call free APIs (OpenMeteo). No paid cloud services introduced. MCP servers are self-hosted or free third-party.
+### ✅ PASS: MCP Integration (Principle V)
 
-### Principle VIII: Weather Domain Focus
-**Status**: ✅ PASS  
-**Verification**: Feature enables weather tool invocation (GeocodeLocation, GetWeather, GetAllergenData) through robust parsing layer. Domain focus maintained.
+- ToolDiscoveryService supports attribute-based discovery
+- Extensible to MCP adapter pattern (future phase)
 
-### Principle IX: Accessibility First
-**Status**: ⚠️ N/A  
-**Verification**: Feature is backend infrastructure (parser/dispatcher/registry). No UI components introduced. Accessibility constraints apply to existing Blazor components only.
+### ✅ PASS: Custom Invocation Layer (Principle XII)
 
-### Principle X: Cross-Platform Compatibility
-**Status**: ✅ PASS  
-**Verification**: Parser uses `System.Text.Json` (built-in, cross-platform). Registry uses `ConcurrentDictionary` (standard library). TestContainers provides cross-platform MCP mocking. No platform-specific APIs.
-
-### Principle XI: Testing Requirements
-**Status**: ✅ PASS  
-**Verification**: Spec mandates unit tests (xUnit + FluentAssertions), integration tests (TestContainers), E2E tests (real Phi-4-mini + MCP), performance benchmarks (BenchmarkDotNet). 18 acceptance scenarios documented. Coverage target >80%.
-
-### Principle XII: Custom Invocation Layer
-**Status**: ✅ PASS (this feature implements the principle)  
-**Verification**: This feature IS the implementation of Principle XII. Spec requirements directly map to principle's architecture:
-- Parser (FR-001, FR-002, US4) → Correctness-first with schema validation
-- Dispatcher (FR-005, FR-006, FR-007, US3, US5) → Secure-by-default with whitelist
-- Registry (FR-003, FR-008, US1) → Horizontal scalability with ConcurrentDictionary
-- MCP Adapter (FR-004, US2) → Minimal coupling with Polly retry
-- Observability (FR-011, FR-012, FR-013, US6) → OpenTelemetry integration
-- Extensibility (FR-003, FR-004, SC-001, SC-002) → Zero-code tool addition
-
-**GATE RESULT**: ✅ ALL PASS - Proceed to Phase 0 research
-
-
+- FunctoolsChatClient intercepts and parses model output
+- ToolInvoker executes discovered tools
+- ToolRegistry maintains zero-code extensibility
+- **NEW**: Will integrate with Foundry's native tool injection
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/002-functools-invocation-layer/
+specs/[###-feature]/
 ├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (JSON Schema libs, MCP protocol, Aspire DI patterns)
-├── data-model.md        # Phase 1 output (FunctionCall, ToolDescriptor, ToolResult entities)
-├── quickstart.md        # Phase 1 output (hello-world: add [Tool] method → invoke via Phi-4-mini)
-├── contracts/           # Phase 1 output (C# interfaces: IFunctoolsParser, IToolInvoker, IToolRegistry)
-│   ├── IFunctoolsParser.cs
-│   ├── IToolInvoker.cs
-│   └── IToolRegistry.cs
-├── checklists/          # Quality validation (created during /speckit.specify)
-│   └── requirements.md
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
@@ -149,307 +104,161 @@ specs/002-functools-invocation-layer/
 
 ```text
 src/
-├── Phi4WeatherAgent.AppHost/           # Aspire orchestration (existing)
-│   └── Program.cs                      # Add DI registration for tool services
+├── Phi4WeatherAgent.Agent/           # Core invocation layer
+│   ├── Integration/
+│   │   └── FunctoolsChatClient.cs     # IChatClient decorator (parse & execute)
+│   ├── Parsing/
+│   │   ├── FunctoolsParser.cs         # Parse functools[...] from model output
+│   │   ├── FunctionCall.cs            # Parsed function call DTO
+│   │   └── ParserException.cs         # Parser-specific errors
+│   ├── Registry/
+│   │   ├── ToolRegistry.cs            # ConcurrentDictionary<string, ToolMetadata>
+│   │   ├── ToolMetadata.cs            # Tool schema, method info, validation
+│   │   ├── ToolDiscoveryService.cs    # BackgroundService for [Tool] discovery
+│   │   └── ToolAttribute.cs           # [Tool("Name")] for zero-code extensibility
+│   ├── Dispatching/
+│   │   ├── ToolInvoker.cs             # Execute registered tools via reflection
+│   │   ├── ToolResult.cs              # Execution result DTO
+│   │   └── IToolInvoker.cs            # Interface for DI
+│   └── Adapters/                      # NEW: Convert to Microsoft.Extensions.AI
+│       ├── AIFunctionAdapter.cs       # Convert ToolMetadata → AIFunction
+│       └── ChatOptionsBuilder.cs      # Build ChatOptions with Tools for Foundry
 │
-├── Phi4WeatherAgent.ServiceDefaults/   # Shared configuration (existing)
-│   └── Extensions.cs                   # Add OpenTelemetry instrumentation
+├── Phi4WeatherAgent.Tools/            # Weather domain tools
+│   ├── GeocodingTools.cs              # [Tool] GeocodeLocation
+│   ├── WeatherTools.cs                # [Tool] GetWeather, GetForecast
+│   └── AirQualityTools.cs             # [Tool] GetAirQuality, GetPollenForecast
 │
-├── Phi4WeatherAgent.Agent/             # NEW: Invocation layer implementation
-│   ├── Phi4WeatherAgent.Agent.csproj   # Dependencies: Microsoft.Extensions.AI, JsonSchema.Net, Polly
-│   │
-│   ├── Parsing/                        # M1: Parser
-│   │   ├── IFunctoolsParser.cs         # Contract: Parse(ReadOnlySpan<char>) → IEnumerable<FunctionCall>
-│   │   ├── FunctoolsParser.cs          # Implementation: Regex detection + System.Text.Json
-│   │   ├── FunctionCall.cs             # Data: Name + Arguments (JsonElement)
-│   │   └── ParserException.cs          # Error: MALFORMED_BLOCK, INCOMPLETE_STREAM
-│   │
-│   ├── Registry/                       # M2: Tool Registry
-│   │   ├── IToolRegistry.cs            # Contract: TryGet, Register, ListAsync
-│   │   ├── ToolRegistry.cs             # Implementation: ConcurrentDictionary<string, ToolDescriptor>
-│   │   ├── ToolDescriptor.cs           # Data: Name, Source, ArgsSchema, Invoker, SecurityClass, Timeout
-│   │   └── ToolAttribute.cs            # Attribute: [Tool("ToolName")] for discovery
-│   │
-│   ├── Dispatching/                    # M2: Dispatcher
-│   │   ├── IToolInvoker.cs             # Contract: InvokeAsync(name, args, ct) → ToolResult
-│   │   ├── ToolInvoker.cs              # Implementation: Validation, whitelist check, timeout
-│   │   ├── ToolResult.cs               # Data: Name, Content, Error, Duration, Meta
-│   │   └── DispatcherException.cs      # Error: UNKNOWN_TOOL, ARG_VALIDATION_FAILED, TIMEOUT
-│   │
-│   ├── McpAdapter/                     # M4: MCP Bridge
-│   │   ├── IMcpClient.cs               # Contract: ListTools, InvokeTool (HTTP abstraction)
-│   │   ├── McpClient.cs                # Implementation: HttpClient + Polly retry policies
-│   │   ├── McpToolDiscovery.cs         # Background service: Discovers tools at startup
-│   │   └── McpToToolDescriptorMapper.cs # Mapping: MCP tool schema → ToolDescriptor
-│   │
-│   ├── Observability/                  # M3: Telemetry
-│   │   ├── InvocationTelemetry.cs      # OpenTelemetry ActivitySource + Meter
-│   │   └── InvocationMetrics.cs        # Metrics: tool.duration, tool.errors, registry.lookup.miss
-│   │
-│   └── Integration/                    # M5: Conversation Glue
-│       ├── FunctoolsChatClient.cs      # Decorator: IChatClient wrapper with functools parsing
-│       └── ToolMessageFormatter.cs     # Format ToolResult → ChatMessage (role: tool)
-│
-├── Phi4WeatherAgent.Web/               # Blazor UI (existing, minimal changes)
-│   └── Program.cs                      # Update DI registration to use FunctoolsChatClient
-│
-└── Phi4WeatherAgent.Tools/             # NEW: Local tool implementations
-    ├── Phi4WeatherAgent.Tools.csproj
-    ├── WeatherTools.cs                 # [Tool("GetWeather")] methods
-    ├── GeocodingTools.cs               # [Tool("GeocodeLocation")] methods
-    └── AllergenTools.cs                # [Tool("GetAllergenData")] methods
+└── Phi4WeatherAgent.Web/
+    ├── Components/Pages/Chat/
+    │   └── Chat.razor                  # UPDATED: Use ChatOptions.Tools, remove manual prompt
+    └── Program.cs                      # IChatClient registration
 
 tests/
-├── Phi4WeatherAgent.Agent.Tests/       # NEW: Unit + Integration tests
+├── Phi4WeatherAgent.Agent.Tests/
+│   ├── Integration/
+│   │   └── FunctoolsChatClientIntegrationTests.cs  # Mock streaming tests
 │   ├── Parsing/
-│   │   ├── FunctoolsParserTests.cs     # Valid JSON, malformed JSON, streaming chunks
-│   │   └── ParserBenchmarks.cs         # BenchmarkDotNet: <50ms for 1MB block
-│   │
+│   │   └── FunctoolsParserTests.cs
 │   ├── Registry/
-│   │   ├── ToolRegistryTests.cs        # Thread-safe registration, concurrent lookups
-│   │   └── RegistryBenchmarks.cs       # BenchmarkDotNet: <1μs lookup
-│   │
-│   ├── Dispatching/
-│   │   ├── ToolInvokerTests.cs         # Validation, whitelist, timeout, cancellation
-│   │   └── DispatcherBenchmarks.cs     # BenchmarkDotNet: <5ms validation
-│   │
-│   ├── McpAdapter/
-│   │   ├── McpClientTests.cs           # Mock MCP server (TestContainers), retry policies
-│   │   └── McpDiscoveryTests.cs        # Startup discovery, graceful degradation
-│   │
-│   └── E2E/
-│       ├── EndToEndTests.cs            # Real Phi-4-mini + MCP tools → full conversation
-│       └── StressTests.cs              # 100 concurrent invocations, 1000 sequential calls
-│
-└── Phi4WeatherAgent.Web.Tests/         # Existing UI tests (no changes required)
+│   │   └── ToolDiscoveryTests.cs
+│   └── Adapters/                      # NEW
+│       └── AIFunctionAdapterTests.cs  # Test ToolMetadata → AIFunction conversion
 ```
 
-**Key Additions:**
-- **Phi4WeatherAgent.Agent** project: Core invocation layer (M1-M5 implementation)
-- **Phi4WeatherAgent.Tools** project: Local tool implementations with `[Tool]` attributes
-- **Phi4WeatherAgent.Agent.Tests** project: Comprehensive test suite (unit/integration/E2E/benchmarks)
-
-**Integration Points:**
-- `Phi4WeatherAgent.AppHost/Program.cs`: Register `IToolRegistry`, `IToolInvoker`, `IFunctoolsParser`, `IMcpClient` in DI
-- `Phi4WeatherAgent.ServiceDefaults/Extensions.cs`: Configure OpenTelemetry ActivitySource for invocation layer
-- `Phi4WeatherAgent.Web/Program.cs`: Replace `IChatClient` with `FunctoolsChatClient` decorator
+**Structure Decision**: Aspire distributed application with separate Agent (core logic) and Web (UI) projects. Integration tests use mock IChatClient to avoid Foundry dependency.
 
 ## Complexity Tracking
 
-No constitutional violations require justification. All new code aligns with established principles. Custom functools parser is explicitly approved exception in Principle III.
+> **No violations** - Architecture aligns with constitutional principles.
 
-## Phase 0: Research & Decision Log
-
-**Goal**: Resolve all NEEDS CLARIFICATION items from Technical Context, validate technology choices, document alternatives considered.
+## Phase 0: Research & Discovery
 
 ### Research Tasks
 
-1. **JSON Schema Library Selection**
-   - **Question**: Which library for argument validation (JsonSchema.Net vs alternatives)?
-   - **Requirements**: <5ms validation, supports JSON Schema Draft 2020-12, minimal allocations
-   - **Candidates**: JsonSchema.Net, NJsonSchema, Manatee.Json
-   - **Research Output**: `research.md` section "JSON Schema Libraries" with benchmark comparison
+#### R001: Foundry Native Function Calling Template Analysis
 
-2. **MCP Protocol Specification**
-   - **Question**: What is the exact HTTP contract for `ListTools` and tool invocation?
-   - **Requirements**: Request/response schemas, error codes, authentication patterns
-   - **Sources**: MCP specification docs, example implementations
-   - **Research Output**: `research.md` section "MCP Protocol Details" with sample requests/responses
+**Status**: ✅ COMPLETED
 
-3. **Aspire DI Patterns**
-   - **Question**: How to register multiple tool implementations dynamically discovered via reflection?
-   - **Requirements**: Support for `[Tool]` attribute scanning, keyed services for tool lookup
-   - **Sources**: Aspire docs, Microsoft.Extensions.DependencyInjection patterns
-   - **Research Output**: `research.md` section "Tool Discovery Patterns" with code samples
+**Findings**:
 
-4. **Source Generator Feasibility (Optional)**
-   - **Question**: Can we generate tool registry at compile-time for AOT compatibility?
-   - **Requirements**: Incremental generator, discovers `[Tool]` attributes, emits registration code
-   - **Risk**: Adds complexity, may not be needed if AOT support is low priority
-   - **Research Output**: `research.md` section "AOT Source Generator" with decision (implement vs defer)
+- Foundry Local 0.8.103+ includes native functools template for Phi-4-mini
+- Template location: `~/.foundry/cache/models/Microsoft/Phi-4-mini-instruct-generic-cpu-5/v5/inference_model.json`
+- Template structure:
 
-5. **Streaming Parser Design**
-   - **Question**: How to detect functools blocks in streaming responses without false positives?
-   - **Requirements**: Handle partial blocks (e.g., "functools[{\"name\": \"GetW" mid-stream)
-   - **Approach**: State machine vs regex vs buffer-based detection
-   - **Research Output**: `research.md` section "Streaming Detection" with algorithm pseudocode
+  ```json
+  {
+    "PromptTemplate": {
+      "system": "<|system|>{Content}<|tool|>{Tool}<|/tool|><|end|>",
+      "tool": "<|tool|>{Tool}<|/tool|>",
+      "prompt": "<|system|> You are a helpful assistant with these tools..."
+    }
+  }
+  ```
 
-### Research Deliverable
+- **Key insight**: `{Tool}` placeholder expects JSON schema injection by Foundry when tools are passed via ChatOptions
 
-**File**: `specs/002-functools-invocation-layer/research.md`
+#### R002: Microsoft.Extensions.AI Tool Registration API
 
-**Template Structure**:
-```markdown
-# Research Log: Functools Invocation Layer
+**Status**: ✅ COMPLETED
 
-## JSON Schema Libraries
-- **Decision**: [Selected library name + version]
-- **Rationale**: [Performance, API simplicity, maintenance status]
-- **Alternatives Considered**: [Other libraries + why rejected]
-- **Benchmark Results**: [Validation time for 10KB schema]
+**Findings**:
 
-## MCP Protocol Details
-- **Decision**: [HTTP contract summary]
-- **Rationale**: [Aligned with spec version X.Y]
-- **Sample Requests**: [ListTools, InvokeTool cURL examples]
-- **Error Handling**: [Status codes, retry logic]
+- `ChatOptions.Tools` property accepts `IList<AITool>`
+- `AIFunction` class represents callable functions with:
+  - Name, Description
+  - JSON Schema for parameters
+  - Delegate for execution (optional - we'll use custom invoker)
+- `AIFunctionFactory.Create()` methods for various function signatures
+- **Gap**: Need adapter to convert our `ToolMetadata` → `AIFunction`
 
-## Tool Discovery Patterns
-- **Decision**: [Reflection-based vs Source Generator]
-- **Rationale**: [Simplicity vs AOT compatibility tradeoff]
-- **Implementation**: [Code sample for attribute scanning]
+#### R003: Test Current Implementation Behavior
 
-## AOT Source Generator
-- **Decision**: [DEFER to Phase 2 or IMPLEMENT NOW]
-- **Rationale**: [User demand, complexity cost]
-- **Prototype**: [Link to PoC branch if implemented]
+**Status**: ✅ COMPLETED via integration tests
 
-## Streaming Detection
-- **Decision**: [State machine algorithm]
-- **Rationale**: [Avoids regex backtracking, handles partial blocks]
-- **Pseudocode**: [State transitions for "functools[" detection]
+**Findings**:
+
+- FunctoolsParser correctly detects `functools[...]` syntax
+- JSON sanitization handles extra braces from model
+- FunctoolsChatClient buffers streaming responses properly
+- **Issue**: Tools not registered in ToolRegistry (ToolDiscoveryService not finding tools)
+- **Issue**: Manual system prompt bypasses Foundry's native template
+
+---
+
+## Phase 2: Implementation Tasks
+
+See [tasks.md](./tasks.md) for detailed implementation tasks.
+
+### Summary of Tasks
+
+- **T001**: Create AIFunctionAdapter (P0 - BLOCKING)
+- **T002**: Create ChatOptionsBuilder (P0 - BLOCKING)
+- **T003**: Register adapters in DI (P0 - BLOCKING)
+- **T004**: Update Chat.razor to use ChatOptions.Tools (P0 - BLOCKING)
+- **T005**: Verify ToolDiscoveryService registration (P1 - HIGH)
+- **T006**: Add health check endpoint (P2 - NICE TO HAVE)
+
+### Critical Path
+
+**Phase 0-2 Foundation** (Old task IDs - planning phase):
+
+```text
+T001 (AIFunctionAdapter)
+  ↓
+T002 (ChatOptionsBuilder)
+  ↓
+T003 (DI Registration)
+  ↓
+T004 (Update Chat.razor)
 ```
 
-## Phase 1: Design & Contracts
+**Phase 10 Foundry Native Integration** (Current implementation - see tasks.md T200-T225):
 
-**Goal**: Define data models, API contracts, and quickstart guide. Update agent context with new technologies.
-
-### Task 1: Data Model Definition
-
-**File**: `specs/002-functools-invocation-layer/data-model.md`
-
-**Content**:
-- **FunctionCall**: Name (string, non-null), Arguments (JsonElement, may be empty object)
-  - Validation Rules: Name matches `^[a-zA-Z][a-zA-Z0-9_]*$`, max 100 chars
-  - State Transitions: None (immutable value object)
-
-- **ToolDescriptor**: Name, Source, ArgsSchema (nullable), Invoker (delegate), SecurityClass (enum), Timeout
-  - Validation Rules: Name unique in registry, Invoker non-null, Timeout >0
-  - Relationships: One-to-many from Source → Descriptors (e.g., "MCP:weather-api" → multiple tools)
-  - State Transitions: Registered → Active (in registry), Unregistered (removed)
-
-- **ToolResult**: Name, Content (nullable), Error (nullable), Duration, Meta
-  - Validation Rules: Exactly one of Content or Error must be non-null
-  - State Transitions: Pending → Success (Content set) OR Failed (Error set)
-
-### Task 2: API Contracts
-
-**Directory**: `specs/002-functools-invocation-layer/contracts/`
-
-**Files**:
-
-1. **IFunctoolsParser.cs**
-```csharp
-namespace Phi4WeatherAgent.Agent.Parsing;
-
-public interface IFunctoolsParser
-{
-    /// <summary>
-    /// Parses functools blocks from model response chunk.
-    /// </summary>
-    /// <param name="chunk">Text chunk from streaming response</param>
-    /// <returns>Enumerable of FunctionCall objects (may be empty if no complete blocks)</returns>
-    /// <exception cref="ParserException">Thrown for malformed JSON or invalid structure</exception>
-    IEnumerable<FunctionCall> Parse(ReadOnlySpan<char> chunk);
-}
+```text
+T200 (Create AIFunctionAdapter.cs) [PARALLEL with T206]
+  ↓
+T201-T205 (Implement AIFunctionAdapter methods)
+  ↓
+T206 (Create ChatOptionsBuilder.cs)
+  ↓
+T207-T211 (Implement ChatOptionsBuilder methods)
+  ↓
+T212-T213 (Register adapters in DI) [BLOCKING for T214]
+  ↓
+T214-T218 (Update Chat.razor to use ChatOptions.Tools)
+  ↓
+T219-T225 (Enhanced logging + health endpoint)
 ```
 
-2. **IToolRegistry.cs**
-```csharp
-namespace Phi4WeatherAgent.Agent.Registry;
+**Dependencies**: Phase 10 requires Phase 2 completion (ToolRegistry, ToolDescriptor entities exist)
 
-public interface IToolRegistry
-{
-    /// <summary>
-    /// Attempts to retrieve tool descriptor by name (case-insensitive).
-    /// </summary>
-    bool TryGet(string name, [NotNullWhen(true)] out ToolDescriptor? descriptor);
-    
-    /// <summary>
-    /// Registers a new tool. Throws if name already exists.
-    /// </summary>
-    void Register(ToolDescriptor descriptor);
-    
-    /// <summary>
-    /// Lists all registered tools asynchronously.
-    /// </summary>
-    IAsyncEnumerable<ToolDescriptor> ListAsync(CancellationToken ct = default);
-}
-```
+### Success Criteria
 
-3. **IToolInvoker.cs**
-```csharp
-namespace Phi4WeatherAgent.Agent.Dispatching;
+-  All unit tests pass
+-  Integration tests pass (2/2 existing + new adapter tests)
+-  Manual test: No raw functools visible in chat UI
+-  Logs show: "Registered 5 tools: GeocodeLocation, GetWeather, ..."
+-  Logs show: "Built ChatOptions with 5 tools"
+-  End-to-end latency < 10s for weather query
 
-public interface IToolInvoker
-{
-    /// <summary>
-    /// Invokes a tool by name with provided arguments.
-    /// </summary>
-    /// <param name="name">Tool name (must exist in registry)</param>
-    /// <param name="args">JSON arguments (validated against tool schema)</param>
-    /// <param name="ct">Cancellation token (respects tool timeout)</param>
-    /// <returns>ToolResult with Content (success) or Error (failure)</returns>
-    Task<ToolResult> InvokeAsync(string name, JsonElement args, CancellationToken ct);
-}
-```
-
-### Task 3: Quickstart Guide
-
-**File**: `specs/002-functools-invocation-layer/quickstart.md`
-
-**Content**:
-- **Prerequisites**: .NET 10 SDK, Foundry Local running, Aspire workload installed
-- **Step 1**: Create new C# class with `[Tool("HelloWorld")]` attribute
-- **Step 2**: Implement method: `string SayHello(string name) => $"Hello, {name}!";`
-- **Step 3**: Restart Aspire AppHost (tools auto-discovered at startup)
-- **Step 4**: Send prompt to Phi-4-mini: "Say hello to Alice"
-- **Expected Output**: Model responds with `functools[{"name": "HelloWorld", "arguments": {"name": "Alice"}}]`, tool executes, model receives result "Hello, Alice!", final response "Hello, Alice! Welcome!"
-- **Verification**: Check Aspire Dashboard for OpenTelemetry trace showing parse → dispatch → execute spans
-
-### Task 4: Agent Context Update
-
-**Script**: `.specify/scripts/powershell/update-agent-context.ps1 -AgentType copilot`
-
-**Action**: Detect Copilot agent, append to `.github/.copilot-instructions.md`:
-```markdown
-## Functools Invocation Layer (Added 2025-11-16)
-- Parser: Detects functools[...] blocks in Phi-4-mini responses (System.Text.Json)
-- Registry: Thread-safe tool lookup (ConcurrentDictionary)
-- Dispatcher: Validates arguments with JsonSchema.Net, enforces allowlist
-- MCP Adapter: Discovers tools via ListTools HTTP endpoint (Polly retry)
-- Telemetry: OpenTelemetry ActivitySource "Phi4WeatherAgent.Agent.Invocation"
-- Testing: BenchmarkDotNet for parser (<50ms), dispatcher (<5ms), registry (<1μs)
-```
-
-**File Modified**: `.github/.copilot-instructions.md` (preserves existing content between markers)
-
-## Phase 1 Deliverables
-
-- ✅ `research.md`: Technology decisions documented with rationale
-- ✅ `data-model.md`: Entity definitions with validation rules
-- ✅ `contracts/IFunctoolsParser.cs`: Parser interface
-- ✅ `contracts/IToolRegistry.cs`: Registry interface  
-- ✅ `contracts/IToolInvoker.cs`: Dispatcher interface
-- ✅ `quickstart.md`: Hello-world scenario with expected output
-- ✅ `.github/.copilot-instructions.md`: Updated with new technologies
-
-## Re-Check Constitution (Post-Design)
-
-All principles remain PASS. No new violations introduced. Zero-code extensibility preserved through `[Tool]` attributes and MCP config files. Performance targets validated feasible through research (JSON Schema validation <5ms confirmed).
-
-## Next Steps
-
-**Command**: `/speckit.tasks`  
-**Input**: This plan + spec + research + data-model + contracts  
-**Output**: `tasks.md` with granular task breakdown (M1-M6 milestones → subtasks with acceptance tests)
-
-**Expected Task Count**: ~30-40 tasks across milestones:
-- M1 Parser: 8-10 tasks (streaming detection, JSON parsing, error handling, tests, benchmarks)
-- M2 Dispatcher + Registry: 10-12 tasks (validation, whitelist, registration, attribute discovery, tests)
-- M3 Telemetry + Policies: 6-8 tasks (ActivitySource, Meter, Polly policies, Dashboard integration)
-- M4 MCP Bridge: 6-8 tasks (HTTP client, discovery service, mapping, retry logic, tests)
-- M5 Conversation Glue: 4-5 tasks (IChatClient decorator, message formatting, integration tests)
-- M6 Aspire + E2E + Benchmarks: 4-6 tasks (DI registration, E2E scenarios, stress tests, benchmarks)
-
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

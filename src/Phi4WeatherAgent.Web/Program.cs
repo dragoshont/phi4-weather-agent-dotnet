@@ -26,6 +26,19 @@ builder.Services.AddSingleton<IToolRegistry, ToolRegistry>();
 builder.Services.AddSingleton<IToolInvoker, ToolInvoker>();
 builder.Services.AddHostedService<ToolDiscoveryService>();
 
+// T212-T213: Register Foundry native integration services
+builder.Services.AddSingleton<Phi4WeatherAgent.Agent.Adapters.IAIFunctionAdapter, Phi4WeatherAgent.Agent.Adapters.AIFunctionAdapter>();
+builder.Services.AddSingleton<Phi4WeatherAgent.Agent.Adapters.IChatOptionsBuilder, Phi4WeatherAgent.Agent.Adapters.ChatOptionsBuilder>();
+
+// T212: Foundry version check (minimum 0.8.103 required for native function calling)
+// NOTE: This is commented out for now since Foundry version detection requires process execution
+// which may not be available in all deployment environments (e.g., containers without Foundry CLI)
+// TODO: Implement version check using foundry --version if needed
+// if (!VerifyFoundryVersion())
+// {
+//     throw new NotSupportedException("Foundry 0.8.103+ required for native function calling");
+// }
+
 // Configure IChatClient with platform-specific AI provider (T034)
 // Platform detection from AppHost: Foundry Local (Windows/macOS) vs Ollama (Linux)
 // AI Model Endpoint Configuration
