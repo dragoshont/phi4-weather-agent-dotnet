@@ -17,13 +17,8 @@ builder.AddServiceDefaults();
 // Blazor Server
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
-// Register OpenMeteo HTTP clients (needed for MCP tools)
+// Register OpenMeteo HTTP clients (used by [Tool] decorated methods in Phi4WeatherAgent.Tools)
 builder.Services.AddOpenMeteoClients(builder.Configuration);
-
-// Register MCP tools for weather queries
-builder.Services.AddScoped<GeocodeTool>();
-builder.Services.AddScoped<WeatherTool>();
-builder.Services.AddScoped<AllergenTool>();
 
 // Register AgentService for conversation management (T033)
 builder.Services.AddScoped<AgentService>();
