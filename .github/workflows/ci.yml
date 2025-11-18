@@ -44,11 +44,18 @@ jobs:
       - name: Verify .NET version
         run: dotnet --info
       
-      - name: Run platform setup script
-        shell: ${{ matrix.script_runner }}
+      - name: Run platform setup script (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
-          chmod +x ${{ matrix.setup_script }} || true
+          chmod +x ${{ matrix.setup_script }}
           ${{ matrix.setup_script }}
+      
+      - name: Run platform setup script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "${{ matrix.setup_script }}"
       
       - name: Restore dependencies
         run: dotnet restore
