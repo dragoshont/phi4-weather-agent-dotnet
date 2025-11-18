@@ -4,7 +4,7 @@
 **Input**: Design documents from specs/002-functools-invocation-layer/  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
-**Tests**: Tests are NOT explicitly requested in the specification, so test tasks are OMITTED per template instructions.
+**Tests**: Tests ARE REQUIRED for production deployment. All test compilation errors must be fixed before merge to main.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
