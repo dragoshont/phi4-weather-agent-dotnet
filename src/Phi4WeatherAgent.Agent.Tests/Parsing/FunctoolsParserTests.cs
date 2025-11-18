@@ -19,7 +19,7 @@ public class FunctoolsParserTests
         var input = "Here is the weather: functools[{\"name\":\"GetWeather\",\"arguments\":{\"location\":\"Seattle\"}}]";
 
         // Act
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
 
         // Assert
         result.Should().NotBeNull();
@@ -35,7 +35,7 @@ public class FunctoolsParserTests
         var input = "functools[{\"name\":\"GetWeather\",\"arguments\":{\"location\":\"Seattle\"}},{\"name\":\"GetForecast\",\"arguments\":{\"location\":\"Portland\",\"days\":7}}]";
 
         // Act
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
 
         // Assert
         result.Should().HaveCount(2);
@@ -51,7 +51,7 @@ public class FunctoolsParserTests
         var input = "functools[{\"name\":\"GetCurrentTime\",\"arguments\":{}}]";
 
         // Act
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
 
         // Assert
         result.Should().ContainSingle();
@@ -115,7 +115,7 @@ public class FunctoolsParserTests
         var input = "functools[{\"name\":\"GetWeather\",\"arguments\":{\"location\":\"Seattle\",\"note\":\"functools[inner]\"}}]";
 
         // Act
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
 
         // Assert
         result.Should().ContainSingle();
@@ -132,7 +132,7 @@ public class FunctoolsParserTests
 
         // Act
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
         sw.Stop();
 
         // Assert
@@ -148,7 +148,7 @@ public class FunctoolsParserTests
         var input = "functools[{\"name\":\"SendMessage\",\"arguments\":{\"text\":\"Hello\\nWorld\\t🌍\"}}]";
 
         // Act
-        var result = _parser.Parse(input);
+        var result = _parser.Parse(input).ToList();
 
         // Assert
         result.Should().ContainSingle();

@@ -13,12 +13,11 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetWeather_ValidCoordinates_ReturnsCurrentWeather()
     {
         // Arrange
-        var tools = new WeatherTools();
         var latitude = 47.6062; // Seattle
         var longitude = -122.3321;
 
         // Act
-        var result = await Task.Run(() => tools.GetWeather(latitude, longitude));
+        var result = await Task.Run(() => WeatherTools.GetWeather(latitude, longitude));
 
         // Assert
         result.Should().NotBeNull();
@@ -33,12 +32,11 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetForecast_ValidCoordinates_ReturnsForecastArray()
     {
         // Arrange
-        var tools = new WeatherTools();
         var latitude = 47.6062;
         var longitude = -122.3321;
 
         // Act
-        var result = await Task.Run(() => tools.GetForecast(latitude, longitude, 7));
+        var result = await Task.Run(() => WeatherTools.GetForecast(latitude, longitude, 7));
 
         // Assert
         result.Should().NotBeNull();
@@ -54,10 +52,9 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GeocodeLocation_ValidCity_ReturnsCoordinates()
     {
         // Arrange
-        var tools = new GeocodingTools();
 
         // Act
-        var result = await Task.Run(() => tools.GeocodeLocation("Seattle", 5, "en"));
+        var result = await Task.Run(() => GeocodingTools.GeocodeLocation("Seattle", 5, "en"));
 
         // Assert
         result.Should().NotBeNull();
@@ -71,10 +68,9 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GeocodeLocation_NonExistentCity_ReturnsNoResults()
     {
         // Arrange
-        var tools = new GeocodingTools();
 
         // Act
-        var result = await Task.Run(() => tools.GeocodeLocation("Xyzabc123NonExistent", 5, "en"));
+        var result = await Task.Run(() => GeocodingTools.GeocodeLocation("Xyzabc123NonExistent", 5, "en"));
 
         // Assert
         result.Should().Contain("No results found");
@@ -84,12 +80,11 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetAirQuality_ValidCoordinates_ReturnsAQIData()
     {
         // Arrange
-        var tools = new AirQualityTools();
         var latitude = 47.6062; // Seattle
         var longitude = -122.3321;
 
         // Act
-        var result = await Task.Run(() => tools.GetAirQuality(latitude, longitude));
+        var result = await Task.Run(() => AirQualityTools.GetAirQuality(latitude, longitude));
 
         // Assert
         result.Should().NotBeNull();
@@ -103,12 +98,11 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetPollenForecast_EuropeanCoordinates_ReturnsPollenData()
     {
         // Arrange
-        var tools = new AirQualityTools();
         var latitude = 52.5200; // Berlin, Germany (Europe)
         var longitude = 13.4050;
 
         // Act
-        var result = await Task.Run(() => tools.GetPollenForecast(latitude, longitude, 4));
+        var result = await Task.Run(() => AirQualityTools.GetPollenForecast(latitude, longitude, 4));
 
         // Assert
         result.Should().NotBeNull();
@@ -121,12 +115,11 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetPollenForecast_NonEuropeanCoordinates_ReturnsError()
     {
         // Arrange
-        var tools = new AirQualityTools();
         var latitude = 47.6062; // Seattle (not Europe)
         var longitude = -122.3321;
 
         // Act
-        var result = await Task.Run(() => tools.GetPollenForecast(latitude, longitude, 4));
+        var result = await Task.Run(() => AirQualityTools.GetPollenForecast(latitude, longitude, 4));
 
         // Assert
         result.Should().Contain("only available for Europe");
@@ -136,14 +129,13 @@ public class OpenMeteoToolsIntegrationTests
     public async Task GetWeather_InvalidCoordinates_HandlesGracefully()
     {
         // Arrange
-        var tools = new WeatherTools();
         var latitude = 999.0; // Invalid latitude (must be -90 to 90)
         var longitude = 0.0;
 
         // Act & Assert - Should throw or return error, not crash
         try
         {
-            var result = await Task.Run(() => tools.GetWeather(latitude, longitude));
+            var result = await Task.Run(() => WeatherTools.GetWeather(latitude, longitude));
             result.Should().Contain("error", "API should reject invalid coordinates");
         }
         catch (Exception ex)
@@ -159,9 +151,8 @@ public class OpenMeteoToolsIntegrationTests
         // This test verifies we don't exceed limits
 
         // Arrange
-        var tools = new WeatherTools();
         var tasks = Enumerable.Range(0, 70).Select(i =>
-            Task.Run(() => tools.GetWeather(47.6 + i * 0.01, -122.3))
+            Task.Run(() => WeatherTools.GetWeather(47.6 + i * 0.01, -122.3))
         );
 
         // Act & Assert - Should complete without 429 errors

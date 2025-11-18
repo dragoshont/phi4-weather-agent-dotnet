@@ -22,7 +22,7 @@ public class US3_ArgumentValidationTests
 
         // Arrange
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         var schema = JsonSchema.FromText(@"{
             ""type"": ""object"",
@@ -64,7 +64,7 @@ public class US3_ArgumentValidationTests
 
         // Arrange
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         var schema = JsonSchema.FromText(@"{
             ""type"": ""object"",
@@ -105,7 +105,7 @@ public class US3_ArgumentValidationTests
 
         // Arrange
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         var tool = new ToolDescriptor
         {

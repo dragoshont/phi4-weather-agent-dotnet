@@ -23,7 +23,7 @@ public class US1_LocalToolInvocationTests
         // Arrange
         var parser = new Phi4WeatherAgent.Agent.Parsing.FunctoolsParser();
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         // Register test tool
         var weatherTool = new ToolDescriptor
@@ -49,7 +49,7 @@ public class US1_LocalToolInvocationTests
         var modelResponse = "The weather in Seattle is: functools[{\"name\":\"GetWeather\",\"arguments\":{\"location\":\"Seattle\"}}]";
 
         // Act
-        var calls = parser.Parse(modelResponse);
+        var calls = parser.Parse(modelResponse).ToList();
         calls.Should().ContainSingle();
 
         var result = await invoker.InvokeAsync(calls[0].Name, calls[0].Arguments, CancellationToken.None);
@@ -71,7 +71,7 @@ public class US1_LocalToolInvocationTests
         // Arrange
         var parser = new Phi4WeatherAgent.Agent.Parsing.FunctoolsParser();
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         var weatherTool = new ToolDescriptor
         {
@@ -121,7 +121,7 @@ public class US1_LocalToolInvocationTests
         // Arrange
         var parser = new Phi4WeatherAgent.Agent.Parsing.FunctoolsParser();
         var registry = new ToolRegistry();
-        var invoker = new ToolInvoker(registry);
+        var invoker = new ToolInvoker(registry, Microsoft.Extensions.Logging.Abstractions.NullLogger<ToolInvoker>.Instance);
 
         var forecastTool = new ToolDescriptor
         {
@@ -148,7 +148,7 @@ public class US1_LocalToolInvocationTests
         var modelResponse = "functools[{\"name\":\"GetForecast\",\"arguments\":{\"location\":\"Seattle\",\"options\":{\"days\":7,\"units\":\"metric\"}}}]";
 
         // Act
-        var calls = parser.Parse(modelResponse);
+        var calls = parser.Parse(modelResponse).ToList();
         var result = await invoker.InvokeAsync(calls[0].Name, calls[0].Arguments, CancellationToken.None);
 
         // Assert

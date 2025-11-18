@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Phi4WeatherAgent.Agent.Dispatching;
 using Phi4WeatherAgent.Agent.Registry;
+using Phi4WeatherAgent.Tools;
 using Json.Schema;
 
 namespace Phi4WeatherAgent.Agent.Tests.Dispatching;
@@ -29,7 +30,7 @@ public class ToolInvokerTests
         var descriptor = CreateTestDescriptor("GetWeather", args =>
         {
             var location = args.GetProperty("location").GetString();
-            return Task.FromResult(new ToolResult
+            return ValueTask.FromResult(new ToolResult
             {
                 Name = "GetWeather",
                 Content = $"Weather in {location}: Sunny, 22°C",
@@ -207,7 +208,7 @@ public class ToolInvokerTests
 
         var descriptor = CreateTestDescriptor("ValidatedTool", args =>
         {
-            return Task.FromResult(new ToolResult { Name = "ValidatedTool", Content = "OK" });
+            return ValueTask.FromResult(new ToolResult { Name = "ValidatedTool", Content = "OK" });
         }, schema: schema);
 
         _mockRegistry.Setup(r => r.TryGet("ValidatedTool", out It.Ref<ToolDescriptor?>.IsAny))
@@ -234,7 +235,7 @@ public class ToolInvokerTests
         // Arrange - US3 Scenario 3: Opt-in validation
         var descriptor = CreateTestDescriptor("UnvalidatedTool", args =>
         {
-            return Task.FromResult(new ToolResult { Name = "UnvalidatedTool", Content = "OK" });
+            return ValueTask.FromResult(new ToolResult { Name = "UnvalidatedTool", Content = "OK" });
         }, schema: null);
 
         _mockRegistry.Setup(r => r.TryGet("UnvalidatedTool", out It.Ref<ToolDescriptor?>.IsAny))
@@ -261,7 +262,7 @@ public class ToolInvokerTests
         // Arrange - NFR-002: Dispatcher validation <5ms
         var descriptor = CreateTestDescriptor("FastTool", args =>
         {
-            return Task.FromResult(new ToolResult { Name = "FastTool", Content = "OK" });
+            return ValueTask.FromResult(new ToolResult { Name = "FastTool", Content = "OK" });
         });
 
         _mockRegistry.Setup(r => r.TryGet("FastTool", out It.Ref<ToolDescriptor?>.IsAny))
@@ -291,7 +292,7 @@ public class ToolInvokerTests
         // Arrange - US3: Reject >10MB payloads (security constraint)
         var descriptor = CreateTestDescriptor("SizeLimitedTool", args =>
         {
-            return Task.FromResult(new ToolResult { Name = "SizeLimitedTool", Content = "OK" });
+            return ValueTask.FromResult(new ToolResult { Name = "SizeLimitedTool", Content = "OK" });
         });
 
         _mockRegistry.Setup(r => r.TryGet("SizeLimitedTool", out It.Ref<ToolDescriptor?>.IsAny))

@@ -66,6 +66,15 @@ public sealed class ToolRegistry : IToolRegistry
         }
     }
 
+    /// <summary>
+    /// Gets all registered tool descriptors as a list (synchronous version for testing).
+    /// </summary>
+    /// <returns>List of all registered tool descriptors.</returns>
+    public IReadOnlyList<ToolDescriptor> GetAll()
+    {
+        return _tools.Values.ToList();
+    }
+
     /// <inheritdoc />
     public int Count => _tools.Count;
 }
