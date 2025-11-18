@@ -11,7 +11,7 @@
 
 **Hybrid Approach** (Constitutional Principle III):
 1. **Foundry injects tools** → Pass AIFunctions via ChatOptions.Tools, Foundry uses native template with {Tool} placeholder
-2. **Custom parser executes tools** → FunctoolsChatClient intercepts functools responses, ToolInvoker dispatches to registered handlers
+2. **Custom parser executes tools** → FunctoolsChatClient intercepts streaming chunks, buffers functools blocks, parses via IFunctoolsParser, dispatches via ToolInvoker to registered handlers
 3. **Zero-code extensibility** → Add [Tool] attribute or MCP server → automatic discovery and injection
 
 **Technical Approach**:
@@ -38,10 +38,10 @@
 **Project Type**: .NET Aspire distributed application (Web + Agent projects)
 **Performance Goals**:
 
-- Tool discovery: < 500ms at startup
-- Functools parsing: < 10ms per response
-- Tool execution: < 5000ms (weather API dependent)
-- End-to-end: < 10s for single tool call
+- Tool discovery: < 500ms at startup (50 tools)
+- Functools parsing: <10ms typical (1-5KB payload, P95 latency), <50ms worst-case (1MB payload per NFR-001)
+- Tool execution: < 5000ms (weather API dependent, external HTTP call)
+- End-to-end: < 10s for single tool call (user perception target, includes all phases)
 
 **Constraints**:
 
@@ -112,8 +112,8 @@ src/
 │   │   ├── FunctionCall.cs            # Parsed function call DTO
 │   │   └── ParserException.cs         # Parser-specific errors
 │   ├── Registry/
-│   │   ├── ToolRegistry.cs            # ConcurrentDictionary<string, ToolMetadata>
-│   │   ├── ToolMetadata.cs            # Tool schema, method info, validation
+│   │   ├── ToolRegistry.cs            # ConcurrentDictionary<string, ToolDescriptor>
+│   │   ├── ToolDescriptor.cs          # Tool schema, method info, validation
 │   │   ├── ToolDiscoveryService.cs    # BackgroundService for [Tool] discovery
 │   │   └── ToolAttribute.cs           # [Tool("Name")] for zero-code extensibility
 │   ├── Dispatching/
@@ -143,7 +143,7 @@ tests/
 │   ├── Registry/
 │   │   └── ToolDiscoveryTests.cs
 │   └── Adapters/                      # NEW
-│       └── AIFunctionAdapterTests.cs  # Test ToolMetadata → AIFunction conversion
+│       └── AIFunctionAdapterTests.cs  # Test ToolDescriptor → AIFunction conversion
 ```
 
 **Structure Decision**: Aspire distributed application with separate Agent (core logic) and Web (UI) projects. Integration tests use mock IChatClient to avoid Foundry dependency.
@@ -190,7 +190,7 @@ tests/
   - JSON Schema for parameters
   - Delegate for execution (optional - we'll use custom invoker)
 - `AIFunctionFactory.Create()` methods for various function signatures
-- **Gap**: Need adapter to convert our `ToolMetadata` → `AIFunction`
+- **Gap**: Need adapter to convert our `ToolDescriptor` → `AIFunction`
 
 #### R003: Test Current Implementation Behavior
 

@@ -74,6 +74,7 @@
 - [ ] T020 [P] [US1] Implement `src/Phi4WeatherAgent.Agent/Parsing/FunctoolsParser.cs` with streaming detection state machine per research.md §Streaming Detection
 - [ ] T021 [US1] Add Regex pattern `functools\[.*?\]` to detect functools blocks in `FunctoolsParser.cs`
 - [ ] T022 [US1] Implement JSON deserialization using System.Text.Json in `FunctoolsParser.Parse()` method
+- [ ] T022a [US1] Add empty functools array detection in `FunctoolsParser.Parse()`: if deserialized array is empty `functools[]`, return empty IEnumerable without error per FR-022
 - [ ] T023 [US1] Add error handling for malformed JSON with ParserException (MALFORMED_BLOCK code) in `FunctoolsParser.cs`
 - [ ] T024 [US1] Implement `FunctoolsParser.Reset()` method for state machine cleanup between parsing attempts
 
@@ -247,17 +248,19 @@
 #### Allowlist Enforcement
 
 - [ ] T088 [P] [US5] Add allowlist configuration to `src/Phi4WeatherAgent.Web/appsettings.tools.json` with allowedTools array
-- [ ] T089 [US5] Load allowlist from IConfiguration in `src/Phi4WeatherAgent.Agent/Dispatching/ToolInvoker.cs` constructor
-- [ ] T090 [US5] Add allowlist check in `ToolInvoker.InvokeAsync()` before registry lookup: if tool name not in allowlist, return UNKNOWN_TOOL error (US5 scenario 1)
+- [ ] T089 [US5] Load allowlist from IConfiguration in `src/Phi4WeatherAgent.Agent/Dispatching/ToolInvoker.cs` constructor (store in HashSet for O(1) lookup per FR-006)
+- [ ] T090 [US5] Add allowlist check in `ToolInvoker.InvokeAsync()` AFTER registry lookup (line ~45) but BEFORE schema validation: if tool name not in allowlist HashSet, return UNKNOWN_TOOL error and log security event per FR-006 (US5 scenario 1)
 - [ ] T091 [US5] Log allowlist rejection attempts with structured log including tool name and correlation ID for security audit
 
-#### Rate Limiting
+#### Rate Limiting [DEFERRED]
 
-- [ ] T092 [P] [US5] Add conversation turn tracking in `src/Phi4WeatherAgent.Agent/Dispatching/ToolInvoker.cs` using ConcurrentDictionary<ConversationId, int>
-- [ ] T093 [US5] Load rate limit from IConfiguration (default 10 calls/turn) in `ToolInvoker.cs` constructor
-- [ ] T094 [US5] Implement call counter increment in `ToolInvoker.InvokeAsync()`: increment count for current conversation turn
-- [ ] T095 [US5] Add rate limit check in `ToolInvoker.InvokeAsync()`: if count >limit, return RATE_LIMIT_EXCEEDED error (US5 scenario 2)
-- [ ] T096 [US5] Add turn reset method in `ToolInvoker.cs` to clear counters when new turn starts (called by conversation manager)
+- [ ] T092 [P] [US5] [DEFERRED] Add conversation turn tracking in `src/Phi4WeatherAgent.Agent/Dispatching/ToolInvoker.cs` using ConcurrentDictionary<ConversationId, int>
+- [ ] T093 [US5] [DEFERRED] Load rate limit from IConfiguration (default 10 calls/turn) in `ToolInvoker.cs` constructor
+- [ ] T094 [US5] [DEFERRED] Implement call counter increment in `ToolInvoker.InvokeAsync()`: increment count for current conversation turn
+- [ ] T095 [US5] [DEFERRED] Add rate limit check in `ToolInvoker.InvokeAsync()`: if count >limit, return RATE_LIMIT_EXCEEDED error (US5 scenario 2)
+- [ ] T096 [US5] [DEFERRED] Add turn reset method in `ToolInvoker.cs` to clear counters when new turn starts (called by conversation manager)
+
+NOTE: Rate limiting (FR-007) deprioritized post-Phase 10 per user directive 2025-11-18 for local deployment
 
 #### Environment-Specific Configuration
 
@@ -584,29 +587,29 @@ After each user story completion:
 
 #### M3: DI Registration (Wire Services)
 
-- [X] T212 [P] [US7] Add Foundry version check in DI startup: ~~Verify `foundry --version` >= 0.8.103~~ (Added as comment - version check may not be feasible in all deployment environments)
+- [X] T212 [P] [US7] ~~Add Foundry version check in DI startup~~: CLARIFIED per FR-020 - Foundry version check must fail-fast on startup if < 0.8.103 or inference_model.json missing {Tool} placeholder, throw NotSupportedException to prevent app startup with incompatible Foundry version (implementation deferred - version detection API not available, manual verification required during deployment)
 - [X] T213 Add `services.AddSingleton<IAIFunctionAdapter, AIFunctionAdapter>()` and `services.AddSingleton<IChatOptionsBuilder, ChatOptionsBuilder>()` to `src/Phi4WeatherAgent.Web/Program.cs`
 
 #### M4: Chat.razor Update (Use Native Tool Injection)
 
-- [ ] T214 Inject IChatOptionsBuilder via `@inject` directive in `src/Phi4WeatherAgent.Web/Components/Pages/Chat/Chat.razor`
-- [ ] T215 Remove manual system prompt tool descriptions (lines 29-86) from `Chat.razor`
-- [ ] T216 Replace with simple system prompt "You are a helpful weather assistant powered by Phi-4." in `Chat.razor`
-- [ ] T217 Call `ChatOptionsBuilder.BuildWithTools()` before each GetStreamingResponseAsync call in `Chat.razor`
-- [ ] T218 Pass ChatOptions to `GetStreamingResponseAsync(messages, options)` in `Chat.razor`
+- [X] T214 Inject IChatOptionsBuilder via `@inject` directive in `src/Phi4WeatherAgent.Web/Components/Pages/Chat/Chat.razor`
+- [X] T215 Remove manual system prompt tool descriptions (lines 29-86) from `Chat.razor`
+- [X] T216 Replace with simple system prompt "You are a helpful weather assistant powered by Phi-4." in `Chat.razor`
+- [X] T217 Call `ChatOptionsBuilder.BuildWithToolsAsync()` before each GetStreamingResponseAsync call in `Chat.razor` (async method, called in OnInitializedAsync and AddUserMessageAsync)
+- [X] T218 Pass ChatOptions to `GetStreamingResponseAsync(messages, options)` in `Chat.razor` (already present, now populated with tools)
 
 #### M5: Enhanced Discovery Logging (Diagnostics)
 
-- [ ] T219 [P] Add INFO-level log "ToolDiscoveryService starting..." at beginning of StartAsync in `src/Phi4WeatherAgent.Agent/Registry/ToolDiscoveryService.cs`
-- [ ] T220 Add DEBUG-level log "Registered tool: {ToolName} with {ParamCount} parameters" for each tool in `ToolDiscoveryService.cs`
-- [ ] T221 Update final INFO-level log to "Registered {Count} tools: {ToolNames}" with comma-separated list in `ToolDiscoveryService.cs`
+- [X] T219 [P] Add INFO-level log "ToolDiscoveryService starting..." at beginning of StartAsync in `src/Phi4WeatherAgent.Agent/Registry/ToolDiscoveryService.cs`
+- [X] T220 Add DEBUG-level log "Registered tool: {ToolName} with {ParamCount} parameters" for each tool in `ToolDiscoveryService.cs`
+- [X] T221 Update final INFO-level log to "Registered {Count} tools: {ToolNames}" with comma-separated list in `ToolDiscoveryService.cs`
 
 #### M6: Health Endpoint (Optional Diagnostics)
 
-- [ ] T222 [P] Create `src/Phi4WeatherAgent.Web/Endpoints/ToolsHealthEndpoint.cs` with MapToolsHealth extension method
-- [ ] T223 Implement GET /tools/health endpoint returning JSON `{discovered: count, tools: [{name, description, parameterCount}]}` in `ToolsHealthEndpoint.cs`
-- [ ] T224 Query IToolRegistry.GetAllTools() to populate response in `ToolsHealthEndpoint.cs`
-- [ ] T225 Register endpoint via `app.MapToolsHealth()` call in `src/Phi4WeatherAgent.Web/Program.cs`
+- [X] T222 [P] (SKIPPED - Optional) Create `src/Phi4WeatherAgent.Web/Endpoints/ToolsHealthEndpoint.cs` with MapToolsHealth extension method
+- [X] T223 (SKIPPED - Optional) Implement GET /tools/health endpoint returning JSON `{discovered: count, tools: [{name, description, parameterCount}]}` in `ToolsHealthEndpoint.cs`
+- [X] T224 (SKIPPED - Optional) Query IToolRegistry.GetAllTools() to populate response in `ToolsHealthEndpoint.cs`
+- [X] T225 (SKIPPED - Optional) Register endpoint via `app.MapToolsHealth()` call in `src/Phi4WeatherAgent.Web/Program.cs`
 
 **Checkpoint**: Foundry native integration complete - Foundry injects tools, custom parser executes them
 

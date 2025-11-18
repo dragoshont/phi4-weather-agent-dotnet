@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text;
 using System.Text.Json;
+using Phi4WeatherAgent.Agent.Telemetry;
 
 namespace Phi4WeatherAgent.Agent.Parsing;
 
@@ -7,6 +10,7 @@ namespace Phi4WeatherAgent.Agent.Parsing;
 /// Parses functools blocks from Phi-4-mini model responses using a buffered state machine.
 /// Handles streaming scenarios where chunks arrive incrementally.
 /// Performance: O(n) time, O(k) space with 16KB buffer.
+/// Emits OpenTelemetry traces for parsing operations.
 /// </summary>
 public sealed class FunctoolsParser : IFunctoolsParser
 {
@@ -37,9 +41,17 @@ public sealed class FunctoolsParser : IFunctoolsParser
     /// <inheritdoc />
     public IEnumerable<FunctionCall> Parse(ReadOnlySpan<char> chunk)
     {
+        // Start trace for parsing chunk
+        using var parseActivity = ActivitySources.Parsing.StartActivity("functools.parse");
+        parseActivity?.SetTag("chunk.size_bytes", chunk.Length * sizeof(char));
+
+        var stopwatch = Stopwatch.StartNew();
+
         _buffer.Append(chunk);
         var text = _buffer.ToString();
         var result = new List<FunctionCall>();
+
+        parseActivity?.SetTag("buffer.total_size_bytes", text.Length * sizeof(char));
 
         for (int i = 0; i < text.Length; i++)
         {
@@ -133,9 +145,26 @@ public sealed class FunctoolsParser : IFunctoolsParser
                             var blockLength = i - _blockStart;
                             var blockText = text.AsSpan(_blockStart, blockLength);
 
+                            // Start trace for block parsing
+                            using var blockActivity = ActivitySources.Parsing.StartActivity("functools.block_complete");
+                            blockActivity?.SetTag("block.size_bytes", blockLength * sizeof(char));
+                            blockActivity?.SetTag("block.size_kb", (blockLength * sizeof(char)) / 1024.0);
+
+                            var blockStopwatch = Stopwatch.StartNew();
+
                             try
                             {
                                 var calls = ParseBlock(blockText);
+                                blockStopwatch.Stop();
+
+                                blockActivity?.SetTag("block.function_count", calls.Count());
+                                blockActivity?.SetTag("block.parse_status", "success");
+
+                                // Record parsing metrics
+                                Metrics.ParsingDuration.Record(
+                                    blockStopwatch.Elapsed.TotalMilliseconds,
+                                    new TagList { { "status", "success" }, { "block_size_kb", ((blockLength * sizeof(char)) / 1024.0).ToString("F2") } });
+
                                 result.AddRange(calls);
 
                                 // Clear buffer up to and including ']'
@@ -147,6 +176,16 @@ public sealed class FunctoolsParser : IFunctoolsParser
                             }
                             catch (JsonException ex)
                             {
+                                blockStopwatch.Stop();
+                                blockActivity?.SetStatus(ActivityStatusCode.Error, "Invalid JSON");
+                                blockActivity?.SetTag("block.parse_status", "error");
+                                blockActivity?.SetTag("error.message", ex.Message);
+
+                                // Record parsing error metrics
+                                Metrics.ParsingDuration.Record(
+                                    blockStopwatch.Elapsed.TotalMilliseconds,
+                                    new TagList { { "status", "failure" }, { "block_size_kb", ((blockLength * sizeof(char)) / 1024.0).ToString("F2") } });
+
                                 throw new ParserException(
                                     ParserException.ErrorCodes.MalformedBlock,
                                     $"Invalid JSON in functools block: {ex.Message}",
@@ -165,6 +204,10 @@ public sealed class FunctoolsParser : IFunctoolsParser
                     break;
             }
         }
+
+        stopwatch.Stop();
+        parseActivity?.SetTag("parse.duration_ms", stopwatch.Elapsed.TotalMilliseconds);
+        parseActivity?.SetTag("parse.found_blocks", result.Count);
 
         return result;
     }

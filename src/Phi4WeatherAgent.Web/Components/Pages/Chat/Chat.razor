@@ -1,6 +1,8 @@
 ﻿@page "/"
 @using Microsoft.Extensions.AI
+@using Phi4WeatherAgent.Agent.Adapters
 @inject IChatClient ChatClient
+@inject IChatOptionsBuilder ChatOptionsBuilder
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -78,21 +80,22 @@
         ";
 
     private int statefulMessageCount;
-    private readonly ChatOptions chatOptions = new();
+    private ChatOptions chatOptions = new();
     private readonly List<ChatMessage> messages = new();
     private CancellationTokenSource? currentResponseCancellation;
     private ChatMessage? currentResponseMessage;
     private ChatInput? chatInput;
     private ChatSuggestions? chatSuggestions;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         statefulMessageCount = 0;
         messages.Add(new(ChatRole.System, SystemPrompt));
         
-        // Note: chatOptions.Tools is NOT used because Phi-4-mini does not support native tool calling
-        // Tools are instead discovered via ToolDiscoveryService and invoked via FunctoolsChatClient decorator
-        // See FunctoolsChatClient.cs for custom functools parsing and invocation
+        // T217: Build ChatOptions with tools from ToolRegistry via ChatOptionsBuilder
+        // Foundry will inject tool definitions into {Tool} placeholder in system template
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync();
+        Console.WriteLine($"[Chat] Initialized with {chatOptions.Tools?.Count ?? 0} tools");
     }
 
     private async Task AddUserMessageAsync(ChatMessage userMessage)
@@ -103,6 +106,10 @@
         messages.Add(userMessage);
         chatSuggestions?.Clear();
         await chatInput!.FocusAsync();
+
+        // T218: Rebuild ChatOptions with latest tools before each request
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync(currentResponseCancellation?.Token ?? default);
+        Console.WriteLine($"[Chat] Rebuilt ChatOptions with {chatOptions.Tools?.Count ?? 0} tools");
 
         // Stream and display a new response from the IChatClient
         var responseText = new TextContent("");
@@ -146,6 +153,9 @@
         CancelAnyCurrentResponse();
         messages.Clear();
         messages.Add(new(ChatRole.System, SystemPrompt));
+        
+        // Rebuild ChatOptions with latest tools
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync();
         chatOptions.ConversationId = null;
         statefulMessageCount = 0;
         chatSuggestions?.Clear();

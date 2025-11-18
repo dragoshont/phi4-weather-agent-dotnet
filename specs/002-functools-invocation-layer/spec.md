@@ -23,11 +23,11 @@ Developer adds a new C# tool method decorated with `[Tool("ToolName")]`, and Phi
 
 ---
 
-### User Story 2 - Discover and Invoke MCP Tools Dynamically (Priority: P1)
+### User Story 2 - Discover and Invoke MCP Tools Dynamically (Priority: P2 - FUTURE PHASE)
 
 Developer configures an MCP server URL in `appsettings.tools.json`, and tools from that server are automatically discovered at startup and invokable by Phi-4-mini.
 
-**Why this priority**: MCP integration is a constitutional requirement (Principle V). Zero-code extensibility for MCP tools is a success criterion.
+**Why this priority**: MCP integration deferred to Phase 11+ per constitution amendment. Phase 10 focuses on local [Tool] attribute discovery and Foundry native integration. MCP adapter will follow same ToolRegistry pattern established in Phase 10.
 
 **Independent Test**: Configure MCP server with `GetCoordinates` tool in appsettings. Start app. Send prompt requesting geocoding. Verify MCP tool is discovered, registered, and invoked successfully.
 
@@ -115,7 +115,7 @@ System passes tools via ChatOptions.Tools API to Foundry, which injects them int
 
 1. **Given** ToolRegistry contains 5 registered tools, **When** ChatOptionsBuilder.BuildWithTools() is called, **Then** returns ChatOptions with 5 AIFunction objects containing correct names, descriptions, and JSON Schemas
 2. **Given** ChatOptions.Tools populated with AIFunctions, **When** sent to Foundry via IChatClient, **Then** Foundry injects tools into {Tool} placeholder in system prompt template automatically
-3. **Given** Foundry injected tools into prompt, **When** model generates functools response, **Then** custom FunctoolsChatClient intercepts, parses, executes tools, and re-prompts without exposing raw functools to user
+3. **Given** Foundry injected tools into prompt, **When** model generates functools response during streaming, **Then** FunctoolsChatClient INTERCEPTS streaming chunks, detects functools blocks BEFORE emitting to UI, buffers complete functools block, parses, dispatches to ToolInvoker, formats results as tool messages, re-prompts model, and resumes streaming natural language response (functools NEVER visible in Chat.razor UI stream)
 
 ---
 
@@ -139,35 +139,35 @@ System passes tools via ChatOptions.Tools API to Foundry, which injects them int
 - **FR-001**: System MUST parse `functools[...]` blocks from Phi-4-mini responses (streaming or complete) and extract array of `FunctionCall { Name, Arguments }`
 - **FR-002**: System MUST validate JSON structure of functools blocks before dispatch (fail-fast on malformed JSON)
 - **FR-003**: System MUST register local C# tools decorated with `[Tool("ToolName")]` attribute via assembly scanning at startup in ToolRegistry
-- **FR-004**: System MUST discover MCP tools dynamically from configured MCP servers (HTTP endpoints) and register as `ToolDescriptor` in ToolRegistry
+- **FR-004**: System SHOULD discover MCP tools dynamically from configured MCP servers (HTTP endpoints) and register as `ToolDescriptor` in ToolRegistry (FUTURE PHASE - not implemented in Phase 10, requires MCP adapter in Phase 11+)
 - **FR-005**: System MUST validate tool arguments against declared JSON Schema before invocation (opt-in per tool)
-- **FR-006**: System MUST enforce explicit allowlist of tool names from `appsettings.tools.json` (reject unknown tools by default) per constitution security constraints
-- **FR-007**: System MUST rate-limit tool calls to max 10 per conversation turn (configurable via `appsettings.tools.json`)
+- **FR-006**: System MUST enforce explicit allowlist of tool names from `appsettings.tools.json` at DISPATCHER level (ToolInvoker checks allowlist before execution, rejects with UNKNOWN_TOOL if not in list) - NOTE: ToolRegistry allows all [Tool] registrations during discovery, allowlist enforcement is execution-time security control per constitution security constraints
+- **FR-007**: System MUST rate-limit tool calls to max 10 per conversation turn at DISPATCHER level (ToolInvoker tracks calls per conversation ID, configurable via `appsettings.tools.json`, rejects 11th call with RATE_LIMIT_EXCEEDED)
 - **FR-008**: System MUST invoke tools with timeout (default 30s, configurable per tool via `ToolDescriptor`)
 - **FR-009**: System MUST catch tool exceptions and format as `ToolResult { Error }` without leaking stack traces
 - **FR-010**: System MUST append tool results as `{"role": "tool", "content": "...", "tool_call_id": "..."}` messages for re-prompting
 - **FR-011**: System MUST emit OpenTelemetry traces with spans: parse → validate → dispatch → execute
 - **FR-012**: System MUST emit metrics: `tool.duration` (P50/P95/P99), `tool.errors` (count per tool), `registry.lookup.miss` (unknown tool attempts)
 - **FR-013**: System MUST log structured JSON with correlation IDs for all tool invocations (success, failure, timeout)
-- **FR-014**: System MUST load tool configuration from `appsettings.tools.json` and Aspire parameters (environment-specific allowlists, MCP server URLs)
-- **FR-015**: System MUST provide health check endpoint reporting registry status (number of registered tools, MCP server connectivity)
+- **FR-014**: System MUST load tool configuration from `appsettings.tools.json` (allowlist, rate limits); Aspire parameter binding for environment-specific configuration deferred to Phase 12+ (post-observability improvements) - Phase 10 uses simple IConfiguration loading
+- **FR-015**: System SHOULD provide health check endpoint reporting registry status (number of registered tools, tool names) - OPTIONAL for MVP, deferred to post-Phase 10 observability improvements
 - **FR-016**: System SHOULD support Source Generator for compile-time tool discovery in AOT scenarios (optional, no runtime reflection) - FUTURE PHASE
 - **FR-017**: System MUST pass discovered tools via ChatOptions.Tools API to enable Foundry's native functools template injection into system prompt
 - **FR-018**: System MUST format tools as AIFunction objects with JSON Schema conforming to Foundry's {Tool} placeholder expectations (name, description, parameters with type/description/required fields)
-- **FR-019**: System MUST handle discovery service failures gracefully: log error, continue startup with zero tools registered, return warning in health check
-- **FR-020**: System MUST validate Foundry version >= 0.8.103 at startup and throw NotSupportedException if template not available
+- **FR-019**: System MUST handle discovery service failures gracefully: (1) No assemblies with [Tool] attributes → log INFO "No tools discovered", continue with empty registry; (2) Assembly load exception → log ERROR with assembly name, continue scanning remaining assemblies; (3) [Tool] attribute parsing error → log WARNING with method signature, skip tool, continue discovery; (4) ALL assemblies fail to load → log CRITICAL, start app with empty registry, emit WARNING on first chat request: 'No tools available - check startup logs for discovery failures'
+- **FR-020**: System MUST validate Foundry version >= 0.8.103 at startup: if version < 0.8.103 OR inference_model.json missing {Tool} placeholder, throw NotSupportedException("Foundry native function calling requires version 0.8.103+") and prevent application startup (fail-fast, no fallback to manual prompts)
 - **FR-021**: System MUST handle network failures when Foundry unreachable: log error, fail chat requests with "FOUNDRY_UNAVAILABLE" error message
-- **FR-022**: System MUST treat empty functools arrays as valid responses indicating no tool invocation needed (skip dispatcher, return model response directly)
+- **FR-022**: System MUST treat empty functools arrays `functools[]` as valid responses indicating no tool invocation needed: FunctoolsParser.Parse() returns empty IEnumerable<FunctionCall> ONLY after complete block received (closing ] found), FunctoolsChatClient skips dispatcher call, passes through model text response directly to UI without tool execution loop - NOTE: Partial `functools[` mid-stream is NOT treated as empty, parser continues buffering
 
 ### Non-Functional Requirements
 
-**Glossary**: "Process" = parse + JSON deserialize + structure validate. "Overhead" = parse + validate + dispatch (excludes tool execution and MCP HTTP). "Chunk" = IChatClient streaming update frame.
+**Glossary**: "Process" = parse + JSON deserialize + structure validate. "Overhead" = parse + validate + dispatch (excludes tool execution and MCP HTTP). "Chunk" = IChatClient streaming update frame. "Conversion" = one-time AIFunctionAdapter transformation during ChatOptionsBuilder.BuildWithTools() at request initialization (before each chat call), NOT at tool registration - excluded from overhead because it's pre-dispatch work.
 
-- **NFR-001**: Parser MUST process (parse + deserialize + validate) 1MB functools block in <50ms (P95 latency)
+- **NFR-001**: Parser MUST process (parse + deserialize + validate) 1MB functools block in <50ms (P95 latency) - applies to worst-case 1MB payload edge case
 - **NFR-002**: Dispatcher validation MUST complete in <5ms per tool call (P95 latency, excludes actual tool execution)
 - **NFR-003**: Dispatcher P95 latency MUST be <30ms excluding external tool invocation time
 - **NFR-004**: Registry lookup MUST complete in <1μs per tool name (concurrent dictionary access)
-- **NFR-005**: Total invocation overhead MUST be <50ms (parse + validate + dispatch, excludes tool execution and MCP HTTP calls)
+- **NFR-005**: Total invocation overhead MUST be <50ms (parse + validate + dispatch, excludes tool execution, MCP HTTP calls, AND AIFunction conversion which is one-time startup cost)
 - **NFR-006**: System MUST handle 100 concurrent tool invocations without degradation (thread-safe registry)
 - **NFR-007**: System MUST start up in <5 seconds with 50 registered tools (assembly scanning + MCP discovery)
 - **NFR-008**: System MUST gracefully degrade if MCP servers are unreachable (log warning, continue with local tools)
@@ -214,13 +214,14 @@ System passes tools via ChatOptions.Tools API to Foundry, which injects them int
 - **SC-012**: System startup completes in <5 seconds with 50 registered tools (verified via stopwatch measurement)
 - **SC-013**: ChatOptions.Tools contains correct AIFunction objects matching ToolRegistry contents (verified via unit test of ChatOptionsBuilder)
 - **SC-014**: Foundry receives ChatOptions.Tools and injects into native template (verified via Foundry logs showing {Tool} placeholder expansion)
+- **SC-002-DEFERRED**: [FUTURE - Phase 11+] Developer can configure new MCP server URL in appsettings and tools are discovered automatically without recompilation (zero-code MCP extensibility verified via manual test)
 
 ## Assumptions *(if any)*
 
 - **A-001**: Phi-4-mini consistently outputs functools in format `functools[array of objects]` (based on observed behavior from testing)
 - **A-002**: MCP servers implement standard MCP protocol for `ListTools` and tool invocation (per MCP specification)
 - **A-003**: Tool methods are thread-safe or explicitly documented as requiring synchronization (responsibility of tool author)
-- **A-004**: JSON Schema validation library (e.g., `JsonSchema.Net`) is available and performant (<5ms validation time)
+- **A-004**: JSON Schema validation library (e.g., `JsonSchema.Net`) is available and performant (<5ms validation time) - Uses JSON Schema Draft 2020-12 with built-in keywords only (type, maxLength, required) to avoid custom validators
 - **A-005**: Aspire Dashboard is running and accessible for telemetry visualization during development
 - **A-006**: .NET 10 Native AOT compilation is optional - Source Generator path only needed if user requests AOT support
 

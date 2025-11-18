@@ -29,6 +29,8 @@ public sealed class ToolDiscoveryService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // T219: Enhanced discovery startup logging
+        _logger.LogInformation("[FOUNDRY] ToolDiscoveryService starting...");
         _logger.LogInformation("Starting tool discovery...");
 
         try
@@ -39,6 +41,7 @@ public sealed class ToolDiscoveryService : BackgroundService
             
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             var discoveredCount = 0;
+            var toolNames = new List<string>();
 
             _logger.LogInformation("Scanning {Count} assemblies for tools", assemblies.Length);
 
@@ -67,6 +70,13 @@ public sealed class ToolDiscoveryService : BackgroundService
                             var descriptor = CreateDescriptor(attr, method, type);
                             _registry.Register(descriptor);
                             discoveredCount++;
+                            toolNames.Add(attr.Name);
+
+                            // T220: DEBUG-level per-tool log with parameter count
+                            var paramCount = method.GetParameters().Length;
+                            _logger.LogDebug(
+                                "[FOUNDRY] Registered tool: {ToolName} with {ParamCount} parameters",
+                                attr.Name, paramCount);
 
                             _logger.LogInformation(
                                 "Registered tool '{ToolName}' from {TypeName}.{MethodName}",
@@ -82,6 +92,11 @@ public sealed class ToolDiscoveryService : BackgroundService
                 }
             }
 
+            // T221: Enhanced final summary with tool names
+            _logger.LogInformation(
+                "[FOUNDRY] Registered {Count} tools: {ToolNames}",
+                discoveredCount,
+                string.Join(", ", toolNames));
             _logger.LogInformation("Tool discovery complete. Registered {Count} tools.", discoveredCount);
         }
         catch (Exception ex)

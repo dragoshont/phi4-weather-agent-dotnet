@@ -8,11 +8,24 @@ using Phi4WeatherAgent.Agent.Parsing;
 using Phi4WeatherAgent.Agent.Registry;
 using Phi4WeatherAgent.Agent.Dispatching;
 using Phi4WeatherAgent.Agent.Integration;
+using Phi4WeatherAgent.Agent.Telemetry;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults (Aspire telemetry, health checks, resilience)
 builder.AddServiceDefaults();
+
+// Configure OpenTelemetry for functools invocation layer
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource(ActivitySources.AgentSourceName + ".Parsing")
+        .AddSource(ActivitySources.AgentSourceName + ".Validation")
+        .AddSource(ActivitySources.AgentSourceName + ".Dispatch")
+        .AddSource(ActivitySources.AgentSourceName + ".Execution"))
+    .WithMetrics(metrics => metrics
+        .AddMeter("Phi4WeatherAgent.Agent"));
 
 // Blazor Server
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();

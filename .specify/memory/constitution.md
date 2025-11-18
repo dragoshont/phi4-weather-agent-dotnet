@@ -98,7 +98,11 @@ This hybrid approach MUST integrate with Agent Framework's IChatClient abstracti
 ### V. Model Context Protocol (MCP)
 **Weather data retrieval MUST use MCP tools** for structured, agent-friendly data.
 
-**Required MCP Tools:**
+**Phased Implementation** (Updated 2025-11-17):
+- **Phase 10 (Current)**: Local C# tools with [Tool] attributes + Foundry native integration
+- **Phase 11+ (Future)**: MCP tool discovery and invocation via HTTP servers
+
+**Required MCP Tools** (Future Phase):
 - **Geocoding Tool**: Convert location names to coordinates
 - **Weather Forecast Tool**: Retrieve forecast data from OpenMeteo API
 - **Allergen Data Tool**: Retrieve pollen/allergen information
