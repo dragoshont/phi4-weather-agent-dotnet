@@ -58,7 +58,10 @@
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            await DispatchExceptionAsync(ex);
+            // Log the error but don't crash the UI - suggestions are optional
+            Console.WriteLine($"[ChatSuggestions] Failed to generate suggestions: {ex.Message}");
+            suggestions = null;
+            StateHasChanged();
         }
     }
 

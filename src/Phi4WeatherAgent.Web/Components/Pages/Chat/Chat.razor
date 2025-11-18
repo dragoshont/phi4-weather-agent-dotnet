@@ -1,10 +1,8 @@
 ﻿@page "/"
-@using Phi4WeatherAgent.Agent.Tools
 @using Microsoft.Extensions.AI
+@using Phi4WeatherAgent.Agent.Adapters
 @inject IChatClient ChatClient
-@inject GeocodeTool GeocodeTool
-@inject WeatherTool WeatherTool
-@inject AllergenTool AllergenTool
+@inject IChatOptionsBuilder ChatOptionsBuilder
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -34,6 +32,16 @@
     private const string SystemPrompt = @"
         You are a helpful weather assistant powered by Phi-4 running locally.
         
+        IMPORTANT: When you need to use a tool, you MUST output the tool call in this EXACT format with proper JSON:
+        functools[{""name"":""ToolName"",""arguments"":{""arg1"":""value1"",""arg2"":123}}]
+        
+        CRITICAL: The format is functools[ then ONE object with ""name"" and ""arguments"", then ].
+        Do NOT add extra braces. The arguments value must be a valid JSON object.
+        
+        Examples:
+        - To geocode: functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        - To get weather: functools[{""name"":""GetWeather"",""arguments"":{""latitude"":48.8566,""longitude"":2.3522}}]
+        
         You can provide:
         - Current weather conditions and forecasts (up to 16 days)
         - Temperature, precipitation, wind speed, cloud cover
@@ -41,48 +49,53 @@
         - Pollen levels and allergen information (Europe only)
         - Multi-day planning and weekend comparisons
         
-        Available tools:
-        - GeocodeLocation: Convert location names to coordinates
-        - GetWeatherForecast: Get weather data for coordinates
-        - GetAllergenLevels: Get pollen levels for coordinates (Europe only)
+        Available tools (use functools format to call them):
+        - GeocodeLocation: Convert location names to latitude/longitude coordinates
+          Arguments: {""location"": string, ""count"": number (optional, default 5), ""language"": string (optional, default ""en"")}
+        - GetWeather: Get current weather conditions for a location (temperature, humidity, wind, conditions)
+          Arguments: {""latitude"": number, ""longitude"": number}
+        - GetForecast: Get weather forecast for up to 16 days
+          Arguments: {""latitude"": number, ""longitude"": number, ""days"": number (1-16, default 7)}
+        - GetAirQuality: Get current air quality data (PM2.5, PM10, CO, NO2, SO2, O3, AQI)
+          Arguments: {""latitude"": number, ""longitude"": number}
+        - GetPollenForecast: Get pollen forecast for European locations (alder, birch, grass, mugwort, olive, ragweed)
+          Arguments: {""latitude"": number, ""longitude"": number, ""days"": number (optional, default 4)}
         
         Guidelines:
         - Always ask for the location if not provided
-        - For ambiguous locations (e.g., 'Paris'), ask for clarification (country/state)
-        - Use GeocodeLocation first, then GetWeatherForecast or GetAllergenLevels with the coordinates
-        - For pollen queries, inform users that data is only available for European locations
+        - For ambiguous locations (e.g., ''Paris''), ask for clarification (country/state)
+        - Use GeocodeLocation first, then use GetWeather, GetForecast, GetAirQuality, or GetPollenForecast with the coordinates
+        - For pollen queries, inform users that GetPollenForecast data is only available for European locations
         - Present information clearly with current conditions and forecasts
-        - Temperature is in Celsius, precipitation in mm, wind in km/h, pollen in grains/m³
+        - Temperature is in Celsius, precipitation in mm, wind in km/h, pollen in grains/m³, AQI on 0-500 scale
         
         Planning features:
         - For weekend queries, provide Saturday and Sunday comparison with recommendations
         - For trip planning, compare weather across multiple days
         - Suggest best days for outdoor activities based on conditions
-        - Highlight significant weather differences (e.g., 'Sunday will be warmer')
+        - Highlight significant weather differences (e.g., ''Sunday will be warmer'')
         - Consider precipitation, wind, and temperature when making recommendations
         
         Be concise and friendly in your responses.
         ";
 
     private int statefulMessageCount;
-    private readonly ChatOptions chatOptions = new();
+    private ChatOptions chatOptions = new();
     private readonly List<ChatMessage> messages = new();
     private CancellationTokenSource? currentResponseCancellation;
     private ChatMessage? currentResponseMessage;
     private ChatInput? chatInput;
     private ChatSuggestions? chatSuggestions;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         statefulMessageCount = 0;
         messages.Add(new(ChatRole.System, SystemPrompt));
         
-        // T036-T037, T047: Register MCP tools for Agent Framework
-        chatOptions.Tools = [
-            AIFunctionFactory.Create(GeocodeTool.GeocodeLocationAsync),
-            AIFunctionFactory.Create(WeatherTool.GetWeatherForecastAsync),
-            AIFunctionFactory.Create(AllergenTool.GetAllergenLevelsAsync)
-        ];
+        // T217: Build ChatOptions with tools from ToolRegistry via ChatOptionsBuilder
+        // Foundry will inject tool definitions into {Tool} placeholder in system template
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync();
+        Console.WriteLine($"[Chat] Initialized with {chatOptions.Tools?.Count ?? 0} tools");
     }
 
     private async Task AddUserMessageAsync(ChatMessage userMessage)
@@ -94,17 +107,27 @@
         chatSuggestions?.Clear();
         await chatInput!.FocusAsync();
 
+        // T218: Rebuild ChatOptions with latest tools before each request
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync(currentResponseCancellation?.Token ?? default);
+        Console.WriteLine($"[Chat] Rebuilt ChatOptions with {chatOptions.Tools?.Count ?? 0} tools");
+
         // Stream and display a new response from the IChatClient
         var responseText = new TextContent("");
         currentResponseMessage = new ChatMessage(ChatRole.Assistant, [responseText]);
         currentResponseCancellation = new();
+        Console.WriteLine($"[Chat] Starting streaming request with {messages.Count - statefulMessageCount} messages");
+        var updateCount = 0;
         await foreach (var update in ChatClient.GetStreamingResponseAsync(messages.Skip(statefulMessageCount), chatOptions, currentResponseCancellation.Token))
         {
+            updateCount++;
+            Console.WriteLine($"[Chat] Update #{updateCount}: Text='{update.Text}' (length={update.Text?.Length ?? 0})");
             messages.AddMessages(update, filter: c => c is not TextContent);
             responseText.Text += update.Text;
             chatOptions.ConversationId = update.ConversationId;
             ChatMessageItem.NotifyChanged(currentResponseMessage);
+            await InvokeAsync(StateHasChanged);
         }
+        Console.WriteLine($"[Chat] Streaming complete. Total updates: {updateCount}, Final text length: {responseText.Text.Length}");
 
         // Store the final response in the conversation, and begin getting suggestions
         messages.Add(currentResponseMessage!);
@@ -130,6 +153,9 @@
         CancelAnyCurrentResponse();
         messages.Clear();
         messages.Add(new(ChatRole.System, SystemPrompt));
+        
+        // Rebuild ChatOptions with latest tools
+        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync();
         chatOptions.ConversationId = null;
         statefulMessageCount = 0;
         chatSuggestions?.Clear();

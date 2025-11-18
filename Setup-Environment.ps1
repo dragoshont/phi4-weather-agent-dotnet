@@ -149,17 +149,17 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
 }
 
 # ============================================
-# 5. Phi-4 Mini Model
+# 5. Phi-4-mini Model
 # ============================================
 Write-Host ""
-Write-Host "[5/6] Checking Phi-4 Mini Model..." -ForegroundColor Yellow
+Write-Host "[5/6] Checking Phi-4-mini Model..." -ForegroundColor Yellow
 
 if (Get-Command foundry -ErrorAction SilentlyContinue) {
-    $phi4Cached = foundry cache list 2>$null | Select-String "phi-4-mini"
-    if ($phi4Cached) {
-        Write-Host "  OK Phi-4 Mini model cached" -ForegroundColor Green
+    $phiCached = foundry cache list 2>$null | Select-String "Phi-4-mini-instruct-generic-cpu"
+    if ($phiCached) {
+        Write-Host "  ✅ Phi-4-mini model cached" -ForegroundColor Green
     } else {
-        Write-Host "  MISSING Phi-4 Mini model not downloaded" -ForegroundColor Yellow
+        Write-Host "  ⚠️ MISSING Phi-4-mini model not downloaded" -ForegroundColor Yellow
         Write-Host "  Downloading (~3.8GB, optimized ONNX format)..." -ForegroundColor Yellow
         Write-Host "  This may take 3-8 minutes depending on connection speed" -ForegroundColor Gray
         Write-Host "" 
@@ -167,14 +167,14 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
         try {
             foundry model download phi-4-mini
             if ($LASTEXITCODE -eq 0) {
-                Write-Host "  OK Phi-4 Mini model downloaded" -ForegroundColor Green
+                Write-Host "  ✅ Phi-4-mini model downloaded" -ForegroundColor Green
             } else {
-                Write-Host "  ERROR Download failed" -ForegroundColor Red
+                Write-Host "  ❌ ERROR Download failed" -ForegroundColor Red
                 Write-Host "  Retry: foundry model download phi-4-mini" -ForegroundColor Yellow
                 $allGood = $false
             }
         } catch {
-            Write-Host "  ERROR $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  ❌ ERROR $($_.Exception.Message)" -ForegroundColor Red
             $allGood = $false
         }
     }

@@ -1,6 +1,6 @@
 # Phi-4 Weather Assistant
 
-**Local-first AI weather assistant** powered by Microsoft Phi-4, .NET 10 Agent Framework, and Aspire 13 orchestration.
+**Local-first AI weather assistant** powered by Microsoft Phi-4-mini, .NET 10 Agent Framework, and Aspire 13 orchestration.
 
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Aspire 13](https://img.shields.io/badge/Aspire-13.0-512BD4)](https://learn.microsoft.com/en-us/dotnet/aspire/)
@@ -13,7 +13,8 @@
 
 - 🌦️ **Weather Forecasts**: Current conditions + 7-day forecasts powered by OpenMeteo API
 - 🌸 **Pollen/Allergen Data**: Grass, birch, ragweed, and more (Europe only)
-- 🤖 **Local AI Inference**: Phi-4 (14B) runs on your machine via Foundry Local (Win/macOS) or Ollama (Linux)
+- 🤖 **Local AI Inference**: Phi-4-mini runs on your machine via Foundry Local (Win/macOS) or Ollama (Linux)
+- 🔧 **Custom Invocation Layer**: Parses Phi-4-mini's `functools[...]` format and executes MCP tools
 - 🎯 **MCP Tools**: Structured weather data retrieval using Model Context Protocol
 - ♿ **Accessible**: WCAG 2.1 AA compliant with keyboard navigation and screen reader support
 - 🆓 **Zero Cloud Costs**: No API keys, no subscriptions, all free and open-source
@@ -51,11 +52,11 @@
 
 #### AI Model
 
-- **Phi-4 Mini** (~3.8GB download, hardware-optimized ONNX format)
+- **Phi-4-mini-instruct** (~3.8GB download, hardware-optimized ONNX format)
   - Windows/macOS: `foundry model download phi-4-mini`
-  - Linux: `ollama pull phi4-mini`
+  - Linux: `ollama pull phi-4-mini`
   - **Note**: Download takes 3-8 minutes depending on connection speed
-  - Verify: `foundry cache list` (should show phi-4-mini)
+  - Verify: `foundry cache list` (should show phi-4-mini-instruct-generic-cpu:5)
 
 #### Developer Certificates (First-time setup)
 
@@ -77,7 +78,7 @@ dotnet dev-certs https --trust
 # This script will:
 # - Enable Hyper-V (requires restart)
 # - Install .NET 10 SDK, Docker Desktop, Foundry Local
-# - Download Phi-4 Mini model (~3.8GB)
+# - Download Mistral-7B model (~4.07GB)
 # - Trust development certificates
 ```
 
@@ -97,7 +98,7 @@ dotnet dev-certs https --trust
 # Clone repository
 git clone https://github.com/dragoshont/phi4-weather-agent-dotnet.git
 cd phi4-weather-agent-dotnet
-git checkout 001-phi-weather-assistant
+git checkout 001-mistral-weather-assistant
 
 # Ensure Docker Desktop is running before setup
 # Check system tray (Windows) or menu bar (macOS) for Docker icon
@@ -126,7 +127,7 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
 - ✅ Verify .NET 10 SDK installed
 - ✅ Install Docker Desktop (if not present)
 - ✅ Install Foundry Local (Windows/macOS) or Ollama (Linux)
-- ✅ Download Phi-4 Mini model (~3.8GB optimized for CPU/NPU, quantized format)
+- ✅ Download Mistral-7B model (~4.07GB optimized for CPU, quantized format)
 - ✅ Trust ASP.NET Core development certificates
 - ✅ Skip downloads if already present (idempotency)
 
@@ -248,8 +249,8 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 ## Architecture
 
 ```
-┌──────────────── Aspire AppHost ────────────────┐
-│  Phi-4 (14B) via Foundry Local or Ollama      │
+┌────────────── Aspire AppHost ────────────────┐
+│  Mistral-7B via Foundry Local or Ollama      │
 │         │                                       │
 │         ▼                                       │
 │  Agent Backend (ASP.NET Core)                  │

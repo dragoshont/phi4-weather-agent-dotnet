@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, 001-phi-weather-assistant ]
+    branches: [ main, 001-phi-weather-assistant, 002-functools-invocation-layer ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
