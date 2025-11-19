@@ -322,6 +322,28 @@ Ensures WCAG 2.1 AA compliance for web components.
 
 **Note**: Tests verify semantic HTML, ARIA labels, keyboard navigation, and color contrast ratios per WCAG 2.1 AA standards.
 
+### Automatic Dependency Submission
+
+Tracks project dependencies in GitHub's Dependency Graph for security monitoring.
+
+**Purpose**:
+
+- **Security Alerts** - Automatically notifies you of known vulnerabilities (CVEs) in NuGet packages
+- **Dependency Visibility** - Shows complete dependency tree (direct + transitive) in repository Insights
+- **Supply Chain Security** - Enables Dependabot to create automated PRs for vulnerable package updates
+
+**How It Works**:
+
+1. Runs after successful build to ensure packages are restored
+2. Scans all `.csproj` files for NuGet package references
+3. Submits dependency manifest to GitHub API
+4. Updates Dependency Graph in real-time
+
+**View Dependencies**: Navigate to repository **Insights → Dependency graph**
+
+**Note**: This is informational only - does not affect builds or deployments. Provides proactive security monitoring for your dependency stack.
+
+
 ---
 
 ## Documentation
