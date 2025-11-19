@@ -283,6 +283,47 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 
 ---
 
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration with the following jobs:
+
+### Build & Test (Matrix: Windows/macOS/Linux)
+
+Runs on pull requests and pushes to main and feature branches.
+
+**Steps**:
+1. **Setup** - .NET 10 SDK installation and dependency restoration
+2. **Platform-specific setup** - Foundry Local (Windows/macOS) or Ollama (Linux)
+3. **Build** - Compile all projects (Agent, Web, Tools, ServiceDefaults)
+4. **Unit Tests** - Agent.Tests with code coverage
+5. **Integration Tests** - OpenMeteo API integration tests
+6. **E2E Tests** - Playwright browser tests (if present)
+
+**Artifacts**: Test results (TRX files) and Playwright reports retained for 7 days
+
+### Dependency License Scan (Ubuntu)
+
+Validates package dependencies and license compliance.
+
+**Checks**:
+1. **Vulnerable Packages** - Scans for known security vulnerabilities using `dotnet list package --vulnerable`
+2. **Semantic Kernel Ban** - Enforces Constitution Principle III (only Microsoft.Extensions.AI allowed)
+3. **Package List** - Generates complete dependency list with transitive packages
+
+**Artifacts**: Package list retained for 30 days for license review
+
+### Accessibility Validation (Ubuntu)
+
+Ensures WCAG 2.1 AA compliance for web components.
+
+**Checks**:
+1. **Build Verification** - Compiles Web project in Release mode
+2. **Accessibility Tests** - Runs Web.Tests accessibility validation suite (if present)
+
+**Note**: Tests verify semantic HTML, ARIA labels, keyboard navigation, and color contrast ratios per WCAG 2.1 AA standards.
+
+---
+
 ## Documentation
 
 - 📘 **[Constitution](specs/001-phi4-weather-assistant/constitution.md)** - Project principles (11 rules)
