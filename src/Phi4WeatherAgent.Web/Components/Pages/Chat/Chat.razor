@@ -44,14 +44,18 @@
         3. NEVER output functools again after receiving the final tool result you need
         4. If you have coordinates and need weather/pollen/air data, call that tool ONCE then respond in natural language
         5. DO NOT ask clarifying questions if you already have the data needed to answer
+        6. DO NOT mention coordinates (latitude/longitude numbers) in your answers UNLESS the user explicitly asks for them
+           - WRONG: "The weather in Paris (48.8566, 2.3522) is..."
+           - CORRECT: "The weather in Paris is..."
+           - ONLY mention coordinates if user asks "What are the coordinates of Paris?"
         
         CORRECT WORKFLOW EXAMPLE:
-        User: ""What's the weather in Paris?""
-        Step 1 - You output: functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        User: "What's the weather in Paris?"
+        Step 1 - You output: functools[{"name":"GeocodeLocation","arguments":{"location":"Paris, France"}}]
         Step 2 - System returns: Coordinates (48.8566, 2.3522)
-        Step 3 - You output: functools[{""name"":""GetWeather"",""arguments"":{""latitude"":48.8566,""longitude"":2.3522}}]
+        Step 3 - You output: functools[{"name":"GetWeather","arguments":{"latitude":48.8566,"longitude":2.3522}}]
         Step 4 - System returns: Weather data (temperature 15°C, cloudy, etc.)
-        Step 5 - You output: ""The weather in Paris is currently 15°C with cloudy skies and light winds.""
+        Step 5 - You output: "The weather in Paris is currently 15°C with cloudy skies and light winds." (NO coordinates mentioned!)
         
         WRONG - Do NOT do this:
         ❌ Calling the same tool repeatedly with same arguments

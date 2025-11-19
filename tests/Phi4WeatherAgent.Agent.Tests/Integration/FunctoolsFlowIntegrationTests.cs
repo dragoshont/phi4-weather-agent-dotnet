@@ -194,6 +194,7 @@ CRITICAL RULES - READ CAREFULLY:
 3. NEVER call the same tool twice with identical arguments
 4. NEVER output functools after you have the data needed to answer the user
 5. Each tool should be called ONCE per unique request
+6. DO NOT mention coordinates (latitude/longitude numbers) UNLESS the user explicitly asks for them
 
 WORKFLOW:
 Question about location → GeocodeLocation → Get coordinates → Call weather/pollen/air tool ONCE → Provide answer
