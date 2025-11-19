@@ -179,6 +179,8 @@ public class FunctoolsFlowIntegrationTests : IAsyncLifetime
 When you need to use a tool, output it in this EXACT format on a single line:
 functools[{""name"":""ToolName"",""arguments"":{""arg1"":""value1"",""arg2"":123}}]
 
+CRITICAL SPELLING: The keyword is ""functools"" (NOT ""funtions"", NOT ""functions"", ONLY ""functools"")
+
 Available tools:
 - GeocodeLocation(location: string) - Convert location names to coordinates
 - GetWeather(latitude: number, longitude: number) - Get CURRENT weather conditions
