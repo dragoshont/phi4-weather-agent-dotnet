@@ -18,7 +18,7 @@ public static class AirQualityTools
     /// </summary>
     [Tool(
         "GetAirQuality",
-        Description = "Get current air quality data including PM2.5, PM10, CO, NO2, SO2, O3, and air quality indices (US AQI, European AQI). Requires latitude and longitude coordinates.",
+        Description = "Get current air quality data including PM2.5, PM10, CO, NO2, SO2, O3, and air quality indices (US AQI, European AQI). Available worldwide for any location. Use this for US/non-European locations when user asks about air quality or pollutants. Requires latitude and longitude coordinates.",
         InputSchemaJson = """
         {
             "type": "object",
@@ -119,7 +119,7 @@ public static class AirQualityTools
     /// </summary>
     [Tool(
         "GetPollenForecast",
-        Description = "Get pollen forecast for European locations (alder, birch, grass, mugwort, olive, ragweed). Only available for Europe with 4-day forecast. Requires latitude and longitude coordinates.",
+        Description = "Get detailed pollen forecast for European locations ONLY (alder, birch, grass, mugwort, olive, ragweed). NOT available for US, Asia, or other non-European regions. Only use for coordinates in Europe. For non-European locations, use GetAirQuality instead which provides air quality data. Requires latitude and longitude coordinates.",
         InputSchemaJson = """
         {
             "type": "object",

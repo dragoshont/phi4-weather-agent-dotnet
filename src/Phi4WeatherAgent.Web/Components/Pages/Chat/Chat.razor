@@ -78,14 +78,17 @@
           Arguments: {""latitude"": number, ""longitude"": number, ""days"": number (1-16, default 7)}
         - GetAirQuality: Get current air quality data (PM2.5, PM10, CO, NO2, SO2, O3, AQI)
           Arguments: {""latitude"": number, ""longitude"": number}
-        - GetPollenForecast: Get pollen forecast for European locations (alder, birch, grass, mugwort, olive, ragweed)
+        - GetPollenForecast: Get pollen forecast for European locations ONLY (alder, birch, grass, mugwort, olive, ragweed)
           Arguments: {""latitude"": number, ""longitude"": number, ""days"": number (optional, default 4)}
+        - GetAirQuality: Get air quality data worldwide (PM2.5, PM10, CO, NO2, SO2, O3, US AQI, European AQI)
+          Arguments: {""latitude"": number, ""longitude"": number}
         
         Guidelines:
         - Always ask for the location if not provided
         - For ambiguous locations (e.g., ''Paris''), ask for clarification (country/state)
         - Use GeocodeLocation first, then use GetWeather, GetForecast, GetAirQuality, or GetPollenForecast with the coordinates
-        - For pollen queries, inform users that GetPollenForecast data is only available for European locations
+        - For pollen/air quality queries in US or non-European locations, use GetAirQuality (available worldwide)
+        - For pollen queries in Europe, use GetPollenForecast (Europe only)
         - Present information clearly with current conditions and forecasts
         - Temperature is in Celsius, precipitation in mm, wind in km/h, pollen in grains/m³, AQI on 0-500 scale
         
