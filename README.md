@@ -52,10 +52,10 @@
 
 #### AI Model
 
-- **Phi-4-mini-instruct** (~3.8GB download, hardware-optimized ONNX format)
+- **Phi-4-mini-instruct** (~9GB download, hardware-optimized ONNX format)
   - Windows/macOS: `foundry model download phi-4-mini`
   - Linux: `ollama pull phi-4-mini`
-  - **Note**: Download takes 3-8 minutes depending on connection speed
+  - **Note**: Download takes 5-15 minutes depending on connection speed
   - Verify: `foundry cache list` (should show phi-4-mini-instruct-generic-cpu:5)
 
 #### Developer Certificates (First-time setup)
@@ -592,6 +592,68 @@ After enabling Hyper-V:
    dotnet --version  # Should show 10.x.x
    ```
 
+### Functools Not Executing (Shows in Chat UI)
+
+**Symptoms**: Chat shows raw functools format like `functools[{"name":"GetWeather",...}]` instead of weather data
+
+**Root Cause**: Tools not registered or functools parsing disabled
+
+**Diagnosis**:
+
+1. **Check tool registration logs** (look for these at startup):
+   ```
+   [FOUNDRY] ToolDiscoveryService starting...
+   [FOUNDRY] Registered 5 tools: GeocodeLocation, GetWeather, GetForecast, GetAirQuality, GetPollenForecast
+   ```
+
+2. **If no tools registered** (shows "Registered 0 tools"):
+   - `ToolDiscoveryService` didn't find `[Tool]` attributes
+   - Check that `Phi4WeatherAgent.Tools` assembly is loaded
+   - Verify `AddHostedService<ToolDiscoveryService>()` in `Program.cs`
+
+3. **If tools are registered but functools still shows**:
+   - `FunctoolsChatClient` decorator not being used
+   - Check `IChatClient` is wrapped: `new FunctoolsChatClient(baseClient, parser, invoker, logger)`
+   - Verify `ChatOptions.Tools` is NULL (Phi-4 doesn't support native function calling)
+
+**Fix**:
+
+```csharp
+// In Program.cs - Correct configuration:
+builder.Services.AddSingleton<IFunctoolsParser, FunctoolsParser>();
+builder.Services.AddSingleton<IToolRegistry, ToolRegistry>();
+builder.Services.AddSingleton<IToolInvoker, ToolInvoker>();
+builder.Services.AddHostedService<ToolDiscoveryService>();
+
+builder.Services.AddChatClient(services =>
+{
+    var baseClient = /* ... create base client ... */;
+    
+    // CRITICAL: Wrap with FunctoolsChatClient decorator
+    var parser = services.GetRequiredService<IFunctoolsParser>();
+    var invoker = services.GetRequiredService<IToolInvoker>();
+    var logger = services.GetRequiredService<ILogger<FunctoolsChatClient>>();
+    
+    return new FunctoolsChatClient(baseClient, parser, invoker, logger);
+});
+
+// In Chat.razor - Do NOT use ChatOptionsBuilder with functools:
+chatOptions = new ChatOptions(); // Empty, no Tools list
+
+// DO NOT do this (breaks functools):
+// chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync(); // ❌ Wrong!
+```
+
+**Verification**:
+
+```powershell
+# Run integration test to verify functools work
+dotnet test tests/Phi4WeatherAgent.Agent.Tests --filter "FunctoolsChatClientIntegrationTests"
+
+# Check logs for tool execution
+# Should see: "FUNCTOOLS DETECTED! Count=1, Tools=GeocodeLocation"
+```
+
 For more troubleshooting, see [Aspire Troubleshooting Guide](https://learn.microsoft.com/en-us/dotnet/aspire/troubleshooting/overview).
 
 ---
@@ -638,7 +700,7 @@ foundry --version
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull Phi-4 model (3.5 GB download)
+# Pull Phi-4 model (9 GB download)
 ollama pull phi4
 
 # Verify model loaded

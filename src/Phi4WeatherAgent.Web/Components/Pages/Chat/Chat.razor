@@ -149,8 +149,8 @@
         messages.Clear();
         messages.Add(new(ChatRole.System, SystemPrompt));
         
-        // Rebuild ChatOptions with latest tools
-        chatOptions = await ChatOptionsBuilder.BuildWithToolsAsync();
+        // Reset ChatOptions (empty - functools decorator handles tools)
+        chatOptions = new ChatOptions();
         chatOptions.ConversationId = null;
         statefulMessageCount = 0;
         chatSuggestions?.Clear();

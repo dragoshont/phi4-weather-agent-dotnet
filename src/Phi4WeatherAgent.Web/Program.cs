@@ -133,3 +133,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Make Program accessible to WebApplicationFactory for integration testing
+public partial class Program { }

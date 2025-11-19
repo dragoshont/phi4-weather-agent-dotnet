@@ -63,31 +63,31 @@ jobs:
         run: dotnet build --no-restore --configuration Release
       
       - name: Run unit tests (Agent)
-        if: hashFiles('src/Phi4WeatherAgent.Agent.Tests') != ''
-        run: dotnet test src/Phi4WeatherAgent.Agent.Tests --no-build --configuration Release --logger "trx;LogFileName=agent-tests.trx"
+        if: hashFiles('tests/Phi4WeatherAgent.Agent.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.Agent.Tests --no-build --configuration Release --logger "trx;LogFileName=agent-tests.trx"
         continue-on-error: false
       
       - name: Run unit tests (Web)
-        if: hashFiles('src/Phi4WeatherAgent.Web.Tests') != ''
-        run: dotnet test src/Phi4WeatherAgent.Web.Tests --no-build --configuration Release --logger "trx;LogFileName=web-tests.trx"
+        if: hashFiles('tests/Phi4WeatherAgent.Web.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.Web.Tests --no-build --configuration Release --logger "trx;LogFileName=web-tests.trx"
         continue-on-error: false
       
       - name: Setup Node.js (for Playwright)
-        if: hashFiles('src/Phi4WeatherAgent.E2E.Tests') != ''
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
       
       - name: Install Playwright dependencies
-        if: hashFiles('src/Phi4WeatherAgent.E2E.Tests') != ''
-        working-directory: src/Phi4WeatherAgent.E2E.Tests
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
+        working-directory: tests/Phi4WeatherAgent.E2E.Tests
         run: |
           npm install
           npx playwright install --with-deps
       
       - name: Run E2E tests (Playwright)
-        if: hashFiles('src/Phi4WeatherAgent.E2E.Tests') != ''
-        run: dotnet test src/Phi4WeatherAgent.E2E.Tests --no-build --configuration Release --logger "trx;LogFileName=e2e-tests.trx"
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.E2E.Tests --no-build --configuration Release --logger "trx;LogFileName=e2e-tests.trx"
         continue-on-error: true
       
       - name: Upload test results
