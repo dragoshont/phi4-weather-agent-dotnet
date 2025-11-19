@@ -275,28 +275,37 @@ public sealed class FunctoolsParser : IFunctoolsParser
         // Sanitize common malformed patterns from model output
         var sanitized = SanitizeFunctoolsJson(blockText.ToString());
 
-        // Parse as JSON array
-        using var doc = JsonDocument.Parse(sanitized);
-        var root = doc.RootElement;
+        // The blockText is the content between functools[ and ]
+        // It's already the array content, so wrap it in array brackets for parsing
+        var jsonToParse = $"[{sanitized}]";
 
-        if (root.ValueKind == JsonValueKind.Array)
+        try
         {
-            // Multiple function calls: functools[{...}, {...}]
-            foreach (var element in root.EnumerateArray())
+            // Parse as JSON array
+            using var doc = JsonDocument.Parse(jsonToParse);
+            var root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array)
             {
-                result.Add(ParseFunctionCall(element));
+                // Multiple function calls or single call in array: [{...}] or [{...}, {...}]
+                foreach (var element in root.EnumerateArray())
+                {
+                    result.Add(ParseFunctionCall(element));
+                }
+            }
+            else
+            {
+                throw new ParserException(
+                    ParserException.ErrorCodes.MalformedBlock,
+                    $"Functools block must be JSON array, got {root.ValueKind}");
             }
         }
-        else if (root.ValueKind == JsonValueKind.Object)
-        {
-            // Single function call: functools[{...}]
-            result.Add(ParseFunctionCall(root));
-        }
-        else
+        catch (JsonException ex)
         {
             throw new ParserException(
                 ParserException.ErrorCodes.MalformedBlock,
-                $"Functools block must be JSON object or array, got {root.ValueKind}");
+                $"Invalid JSON in functools block: {ex.Message}",
+                ex);
         }
 
         return result;
@@ -332,15 +341,18 @@ public sealed class FunctoolsParser : IFunctoolsParser
             ParserException.ErrorCodes.MalformedBlock,
             "Function call 'name' cannot be null");
 
-        // Arguments are optional, default to empty object
-        var arguments = element.TryGetProperty("arguments", out var argsProperty)
-            ? argsProperty
-            : JsonDocument.Parse("{}").RootElement;
+        // Arguments field is required (per test requirements)
+        if (!element.TryGetProperty("arguments", out var argsProperty))
+        {
+            throw new ParserException(
+                ParserException.ErrorCodes.MalformedBlock,
+                "Function call missing required 'arguments' property");
+        }
 
         var call = new FunctionCall
         {
             Name = name,
-            Arguments = arguments.Clone() // Clone to avoid dispose issues
+            Arguments = argsProperty.Clone() // Clone to avoid dispose issues
         };
 
         // Validate the function call
