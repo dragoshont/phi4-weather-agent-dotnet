@@ -27,6 +27,10 @@ public sealed class FunctoolsChatClient : IChatClient
     private readonly IFunctoolsParser _parser;
     private readonly IToolInvoker _invoker;
     private readonly ILogger<FunctoolsChatClient> _logger;
+    private const int MaxRecursionDepth = 10; // Prevent infinite loops
+    
+    // Track tool calls across entire conversation to prevent repeated calls
+    private readonly HashSet<string> _conversationCallSignatures = new();
 
     public FunctoolsChatClient(
         IChatClient innerClient,
@@ -155,6 +159,33 @@ public sealed class FunctoolsChatClient : IChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // Reset call signatures at start of each top-level request
+        _conversationCallSignatures.Clear();
+        
+        await foreach (var update in GetStreamingResponseInternalAsync(chatMessages, options, 0, cancellationToken))
+        {
+            yield return update;
+        }
+    }
+
+    private async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseInternalAsync(
+        IEnumerable<ChatMessage> chatMessages,
+        ChatOptions? options,
+        int recursionDepth,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Check recursion depth to prevent infinite loops
+        if (recursionDepth >= MaxRecursionDepth)
+        {
+            _logger.LogError("Maximum recursion depth ({MaxDepth}) exceeded. Stopping to prevent infinite loop.", MaxRecursionDepth);
+            yield return new ChatResponseUpdate 
+            { 
+                Contents = [new TextContent("I apologize, but I encountered an issue processing your request. The system reached maximum recursion depth.")]
+            };
+            yield break;
+        }
+
+        _logger.LogDebug("Processing request at recursion depth {Depth}/{MaxDepth}", recursionDepth, MaxRecursionDepth);
         // Buffer the streaming response to detect functools
         // IMPORTANT: We must buffer BEFORE yielding to avoid showing functools to user
         _parser.Reset();
@@ -205,9 +236,51 @@ public sealed class FunctoolsChatClient : IChatClient
         _logger.LogWarning("FUNCTOOLS DETECTED! Count={Count}, Tools={Tools}", 
             calls.Count, string.Join(", ", calls.Select(c => c.Name)));
 
-        // Execute tools
-        var toolResults = new List<ToolResult>();
+        // Check for duplicate tool calls across the entire conversation
+        var duplicateCalls = new List<FunctionCall>();
+        
         foreach (var call in calls)
+        {
+            var signature = $"{call.Name}:{call.Arguments}";
+            if (_conversationCallSignatures.Contains(signature))
+            {
+                duplicateCalls.Add(call);
+                _logger.LogWarning("Duplicate tool call detected: {ToolName} with same arguments was already called in this conversation. Skipping to prevent loop.", call.Name);
+            }
+            else
+            {
+                _conversationCallSignatures.Add(signature);
+            }
+        }
+        
+        // Filter out duplicates
+        var uniqueCalls = calls.Where(c => !duplicateCalls.Contains(c)).ToList();
+        
+        if (uniqueCalls.Count == 0)
+        {
+            _logger.LogWarning("All tool calls were duplicates. Prompting model to answer with existing data.");
+            
+            // Add a system message telling the model to use the data it already has
+            var messagesWithDirective = new List<ChatMessage>(messagesList)
+            {
+                new ChatMessage(ChatRole.System, 
+                    "STOP - You have already called these tools and received the results. " +
+                    "You MUST now provide a natural language answer to the user's question using " +
+                    "the tool results you already have in the conversation history above. " +
+                    "DO NOT call any more tools. Just answer the question.")
+            };
+            
+            // Make one final call to get the answer
+            await foreach (var update in _innerClient.GetStreamingResponseAsync(messagesWithDirective, options, cancellationToken))
+            {
+                yield return update;
+            }
+            yield break;
+        }
+
+        // Execute tools (only unique ones)
+        var toolResults = new List<ToolResult>();
+        foreach (var call in uniqueCalls)
         {
             _logger.LogDebug("Invoking tool: {ToolName} with args: {Args}", call.Name, call.Arguments);
             var result = await _invoker.InvokeAsync(call.Name, call.Arguments, cancellationToken);
@@ -230,10 +303,11 @@ public sealed class FunctoolsChatClient : IChatClient
         updatedMessages.Add(new ChatMessage(ChatRole.Assistant, responseText));
         updatedMessages.AddRange(toolMessages);
 
-        _logger.LogDebug("Re-prompting model with {Count} tool results", toolResults.Count);
+        _logger.LogDebug("Re-prompting model with {Count} tool results at depth {Depth}", toolResults.Count, recursionDepth);
 
-        // Stream the final response (this will NOT contain functools)
-        await foreach (var update in _innerClient.GetStreamingResponseAsync(updatedMessages, options, cancellationToken))
+        // Recursively handle the response (may contain more functools calls)
+        // Use GetStreamingResponseInternalAsync recursively to handle chained tool calls
+        await foreach (var update in GetStreamingResponseInternalAsync(updatedMessages, options, recursionDepth + 1, cancellationToken))
         {
             yield return update;
         }
@@ -241,7 +315,7 @@ public sealed class FunctoolsChatClient : IChatClient
 
     /// <summary>
     /// Converts ToolResult array to ChatMessage array with role=tool.
-    /// Format: JSON with tool name, content/error, duration.
+    /// Format: Clear human-readable text so the model understands what to do next.
     /// </summary>
     private List<ChatMessage> ConvertToolResultsToMessages(List<ToolResult> results)
     {
@@ -249,20 +323,18 @@ public sealed class FunctoolsChatClient : IChatClient
 
         foreach (var result in results)
         {
-            // Format tool result as structured message
-            var resultJson = new
+            string messageText;
+            
+            if (result.Error != null)
             {
-                tool = result.Name,
-                success = result.Error == null,
-                content = result.Content,
-                error = result.Error,
-                duration_ms = result.Duration?.TotalMilliseconds
-            };
-
-            var messageText = JsonSerializer.Serialize(resultJson, new JsonSerializerOptions 
-            { 
-                WriteIndented = false 
-            });
+                // Error case: explain what went wrong
+                messageText = $"Tool '{result.Name}' failed with error: {result.Error}";
+            }
+            else
+            {
+                // Success case: provide the data in clear format
+                messageText = $"Tool '{result.Name}' returned:\n{result.Content}";
+            }
 
             // Use System role for tool results (Microsoft.Extensions.AI may not support Tool role yet)
             messages.Add(new ChatMessage(ChatRole.System, messageText));

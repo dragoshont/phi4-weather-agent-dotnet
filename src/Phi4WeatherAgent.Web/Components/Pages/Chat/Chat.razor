@@ -37,9 +37,25 @@
         CRITICAL: The format is functools[ then ONE object with ""name"" and ""arguments"", then ].
         Do NOT add extra braces. The arguments value must be a valid JSON object.
         
-        Examples:
-        - To geocode: functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
-        - To get weather: functools[{""name"":""GetWeather"",""arguments"":{""latitude"":48.8566,""longitude"":2.3522}}]
+        TOOL EXECUTION RULES:
+        1. When you receive tool results, analyze them and provide a natural language answer to the user
+        2. NEVER call the same tool twice with the same arguments
+        3. NEVER output functools again after receiving the final tool result you need
+        4. If you have coordinates and need weather/pollen/air data, call that tool ONCE then respond in natural language
+        5. DO NOT ask clarifying questions if you already have the data needed to answer
+        
+        CORRECT WORKFLOW EXAMPLE:
+        User: ""What's the weather in Paris?""
+        Step 1 - You output: functools[{""name"":""GeocodeLocation"",""arguments"":{""location"":""Paris, France""}}]
+        Step 2 - System returns: Coordinates (48.8566, 2.3522)
+        Step 3 - You output: functools[{""name"":""GetWeather"",""arguments"":{""latitude"":48.8566,""longitude"":2.3522}}]
+        Step 4 - System returns: Weather data (temperature 15°C, cloudy, etc.)
+        Step 5 - You output: ""The weather in Paris is currently 15°C with cloudy skies and light winds.""
+        
+        WRONG - Do NOT do this:
+        ❌ Calling the same tool repeatedly with same arguments
+        ❌ Outputting functools after you already have the weather data
+        ❌ Asking ""Would you like more information?"" instead of just answering
         
         You can provide:
         - Current weather conditions and forecasts (up to 16 days)

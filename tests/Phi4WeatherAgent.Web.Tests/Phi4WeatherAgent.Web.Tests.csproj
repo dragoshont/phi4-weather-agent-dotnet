@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Phi4WeatherAgent.Web\Phi4WeatherAgent.Web.csproj">
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <Aliases>web</Aliases>
     </ProjectReference>
   </ItemGroup>
 
