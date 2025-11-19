@@ -665,11 +665,19 @@ For more troubleshooting, see [Aspire Troubleshooting Guide](https://learn.micro
 dotnet test tests/Phi4WeatherAgent.Agent.Tests
 dotnet test tests/Phi4WeatherAgent.Web.Tests
 
-# E2E tests (Playwright)
+# E2E tests (Playwright) - requires web app running
+# Terminal 1: Start the web app
+dotnet run --project src/Phi4WeatherAgent.Web
+
+# Terminal 2: Run E2E smoke test
 cd tests/Phi4WeatherAgent.E2E.Tests
 npm install
-npx playwright install
-dotnet test
+npx playwright install --with-deps
+dotnet test --filter "FullyQualifiedName~FunctoolsSmokeTest"
+
+# CRITICAL: Smoke test validates functools are NOT shown in chat UI
+# This test would have caught the ChatOptionsBuilder configuration bug
+# See: tests/Phi4WeatherAgent.E2E.Tests/Smoke/FunctoolsSmokeTest.cs
 
 # Accessibility testing (manual)
 # Use NVDA (Windows) or VoiceOver (macOS) to verify:
@@ -677,6 +685,12 @@ dotnet test
 # - Weather card content read aloud
 # - Live region announcements
 ```
+
+**Testing Strategy**: See `specs/002-functools-invocation-layer/TESTING-STRATEGY.md` for:
+
+- Why E2E tests are critical for catching functools bugs
+- Testing gaps and recommendations
+- Specific test examples that prevent regressions
 
 ---
 
