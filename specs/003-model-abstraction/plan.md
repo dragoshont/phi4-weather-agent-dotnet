@@ -1,19 +1,19 @@
 # Implementation Plan: Model Abstraction and Domain-Agnostic Project Naming
 
-**Branch**: `003-model-abstraction` | **Date**: 2025-11-20 | **Spec**: [spec.md](./spec.md)  
+**Branch**: `003-model-abstraction` | **Date**: 2025-11-20 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/003-model-abstraction/spec.md`
 
 ## Summary
 
-Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framework** (`Microsoft.Agents.AI`), creating a configuration-driven model abstraction that supports local models (Phi-4 Mini, Qwen 2.5 VL 3B) and cloud-ready architecture (GPT-4o, Gemini). Implement interface-based tool invocation handlers (`IToolInvocationHandler`) for pluggable model-specific parsing. Rename projects from `Phi4WeatherAgent.*` to `LocalConversationalAgent.*` for domain-agnostic reusability. Add UI dropdown for per-conversation model selection. Primary value: Zero-recompilation model switching and extensible architecture.
+Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framework** (`Microsoft.Agents.AI`), creating a configuration-driven model abstraction that supports local models (Phi-4 Mini, Qwen 2.5 VL 3B) and cloud-ready architecture (GPT-4o, Gemini). Implement interface-based tool invocation handlers (`IToolInvocationHandler`) for pluggable model-specific parsing. Rename projects from `Phi4WeatherAgent.*` to `LocalConversationalAgent.*` for domain-agnostic reusability. Extract weather tools to dedicated `LocalConversationalAgent.OpenMeteo` assembly. Add UI dropdown for per-conversation model selection. Primary value: Zero-recompilation model switching and extensible architecture.
 
 ## Technical Context
 
-**Language/Version**: .NET 10.0.100+ (pinned in `global.json`, `net10.0` target framework)  
-**Primary Dependencies**: Microsoft.Agents.AI (public preview), Microsoft.Extensions.AI (types only), Aspire 13.0.0-preview.1+, Blazor Server  
-**Storage**: N/A (stateless agent, no persistence required for model configuration)  
-**Testing**: xUnit 2.9.2+, bUnit 1.31.3+ (Blazor components), Moq/NSubstitute (mocking), FluentAssertions  
-**Target Platform**: Cross-platform (.NET 10: Windows, macOS, Linux)  
+**Language/Version**: .NET 10.0.100+ (pinned in `global.json`, `net10.0` target framework)
+**Primary Dependencies**: Microsoft.Agents.AI (public preview), Microsoft.Extensions.AI (types only), Aspire 13.0.0-preview.1+, Blazor Server
+**Storage**: N/A (stateless agent, no persistence required for model configuration)
+**Testing**: xUnit 2.9.2+, bUnit 1.31.3+ (Blazor components), Moq/NSubstitute (mocking), FluentAssertions
+**Target Platform**: Cross-platform (.NET 10: Windows, macOS, Linux)
 **Project Type**: Web application (Blazor Server frontend + Agent backend + Aspire AppHost orchestration)
 
 **Performance Goals**:
@@ -31,8 +31,8 @@ Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framewo
 
 **Scale/Scope**:
 
-- **Projects**: 6 existing projects (Agent, Web, AppHost, ServiceDefaults, Tools, Agent.Tests)
-- **Impact**: ~1480 LOC across all components (500 middleware, 200 agent migration, 100 tools, 150 state, 50 prompts, 50 rename, 100 UI, 110 scripts, 200 docs, 3 package files)
+- **Projects**: 7 projects after changes (Agent, Web, AppHost, ServiceDefaults, Tools, Agent.Tests, **OpenMeteo**)
+- **Impact**: ~1630 LOC across all components (500 middleware, 200 agent migration, 100 tools, 150 state, 50 prompts, 50 rename, 100 UI, 110 scripts, 200 docs, 150 OpenMeteo assembly, 20 validation/accessibility, 3 package files)
 - **Model Support**: 2 local models initially (Phi-4 Mini default, Qwen 2.5 VL 3B), cloud-ready structure (GPT-4o, Gemini configuration deferred)
 
 ## Constitution Check
@@ -139,7 +139,16 @@ src/
 │   │       └── Chat.razor                   # UPDATED: Model dropdown + locking logic
 │   └── appsettings.json                     # UPDATED: Multi-model configuration
 ├── LocalConversationalAgent.Tools/          # Renamed from Phi4WeatherAgent.Tools
-│   └── [tool implementations unchanged]
+│   └── [generic tool abstractions]         # NOTE: Weather tools moved to OpenMeteo
+├── LocalConversationalAgent.OpenMeteo/      # NEW: Domain-specific weather tools
+│   ├── Tools/
+│   │   ├── GeocodingTools.cs               # MOVED: From Tools project
+│   │   ├── WeatherTools.cs                 # MOVED: From Tools project
+│   │   └── AirQualityTools.cs              # MOVED: From Tools project
+│   ├── Clients/
+│   │   └── OpenMeteoHttpClient.cs          # HTTP client with Polly retry
+│   └── Models/
+│       └── [OpenMeteo API response models]
 ├── LocalConversationalAgent.AppHost/        # Renamed from Phi4WeatherAgent.AppHost
 │   └── Program.cs
 ├── LocalConversationalAgent.ServiceDefaults/ # Renamed from Phi4WeatherAgent.ServiceDefaults
@@ -357,7 +366,7 @@ Run `.specify/scripts/powershell/update-agent-context.ps1 -AgentType copilot` to
     - Add UI component tests for dropdown
     - Integration tests for multi-model scenarios
 
-**Total Estimated Effort**: ~1480 LOC, 13 phases, estimated 3-5 days for experienced .NET developer.
+**Total Estimated Effort**: ~1630 LOC, 13 phases, estimated 3-5 days for experienced .NET developer.
 
 ## Risk Assessment
 
