@@ -37,6 +37,14 @@ All checklist items pass. Specification is ready for planning phase (`/speckit.p
 - Clear prioritization (P1-P4) with independent testability
 - Measurable success criteria (latency reduction, zero weather references, 100% config-driven)
 - Well-defined scope (what's in/out)
-- Open questions captured for decision during planning
+- **All 4 open questions resolved** (no fallback, interface-based handlers, minimal dropdown, no persistence)
+- Interface-based design (`IToolInvocationHandler`) enables extensibility without core changes
+
+**Design Decisions Finalized**:
+
+- Q1: Fail-fast error handling (no model fallback chains)
+- Q2: `IToolInvocationHandler` interface for pluggable model-specific tool handling
+- Q3: Minimal dropdown format ("Provider: model-name (endpoint-type)")
+- Q4: No persistence - always default to configuration
 
 **No blockers identified** - ready to proceed to implementation planning.
