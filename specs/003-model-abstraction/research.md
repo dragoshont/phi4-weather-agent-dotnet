@@ -1,7 +1,7 @@
 # Research Document: Agent Framework Migration and Model Abstraction
 
-**Feature**: 003-model-abstraction  
-**Date**: 2025-11-20  
+**Feature**: 003-model-abstraction
+**Date**: 2025-11-20
 **Status**: Complete
 
 ## Executive Summary
@@ -36,7 +36,7 @@ Microsoft Agent Framework (`Microsoft.Agents.AI`) provides:
 public class ChatService
 {
     private readonly IChatClient _chatClient;
-    
+
     public async Task<ChatCompletion> GetResponseAsync(string userMessage)
     {
         var messages = new List<ChatMessage> { new(ChatRole.User, userMessage) };
@@ -50,7 +50,7 @@ public class ChatService
 {
     private readonly ChatClientAgent _agent;
     private readonly AgentThread _thread;
-    
+
     public async Task<AgentRunResponse> GetResponseAsync(string userMessage)
     {
         var response = await _agent.RunAsync(userMessage, _thread);
@@ -68,13 +68,13 @@ services.AddSingleton<ChatClientAgent>(sp =>
     var chatClient = sp.GetRequiredService<IChatClient>();
     var config = sp.GetRequiredService<IOptions<ModelConfiguration>>().Value;
     var promptProvider = sp.GetRequiredService<IPromptProvider>();
-    
+
     // Create agent with system prompt
     var agent = chatClient.CreateAIAgent(
         instructions: promptProvider.GetSystemPrompt(),
         tools: sp.GetRequiredService<IEnumerable<Delegate>>() // Tool methods
     );
-    
+
     // Conditionally apply handler based on ToolInvocationStrategy
     if (!string.IsNullOrEmpty(config.ToolInvocationStrategy))
     {
@@ -83,7 +83,7 @@ services.AddSingleton<ChatClientAgent>(sp =>
         );
         agent.AddMiddleware(context => handler.InvokeAsync(context, next));
     }
-    
+
     return agent;
 });
 ```
@@ -204,7 +204,7 @@ public class FunctoolsHandler : IToolInvocationHandler
 {
     private readonly ILogger<FunctoolsHandler> _logger;
     private readonly FunctoolsParser _parser;
-    
+
     public async Task<AgentRunResponse> InvokeAsync(
         AgentInvokeContext context,
         AgentMiddlewareDelegate next
@@ -213,17 +213,17 @@ public class FunctoolsHandler : IToolInvocationHandler
         // 1. Inject functools format into system prompt (if not already present)
         // 2. Call next middleware (actual model invocation)
         var response = await next(context);
-        
+
         // 3. Parse functools blocks from response
         var functoolsBlocks = _parser.ExtractFunctoolsBlocks(response.Text);
         if (!functoolsBlocks.Any())
             return response; // No tool calls, return as-is
-        
+
         // 4. Execute tools (Agent Framework handles this via tool registry)
         // 5. Append tool results to conversation
         // 6. Re-invoke model with tool results
         // 7. Return final response
-        
+
         _logger.LogInformation("Processed {Count} functools calls", functoolsBlocks.Count);
         return response;
     }
@@ -277,7 +277,7 @@ public interface IPromptProvider
     /// </summary>
     /// <returns>System prompt text (Markdown format)</returns>
     string GetSystemPrompt();
-    
+
     /// <summary>
     /// Gets the tool invocation strategy for the current model.
     /// </summary>
@@ -292,21 +292,21 @@ public class FileSystemPromptProvider : IPromptProvider
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<FileSystemPromptProvider> _logger;
-    
+
     public string GetSystemPrompt()
     {
         var promptFile = _configuration["AI:Models:{currentModel}:SystemPromptFile"];
         var promptPath = Path.Combine(AppContext.BaseDirectory, promptFile);
-        
+
         if (!File.Exists(promptPath))
         {
             _logger.LogError("Prompt file not found: {Path}", promptPath);
             throw new FileNotFoundException($"Prompt file not found: {promptPath}");
         }
-        
+
         return File.ReadAllText(promptPath);
     }
-    
+
     public string? ToolInvocationStrategy =>
         _configuration["AI:Models:{currentModel}:ToolInvocationStrategy"];
 }
@@ -398,7 +398,7 @@ public class AIConfiguration
 {
     [Required]
     public string DefaultModel { get; set; } = "phi-4-mini";
-    
+
     [Required]
     public Dictionary<string, ModelConfiguration> Models { get; set; } = new();
 }
@@ -407,15 +407,15 @@ public class ModelConfiguration
 {
     [Required]
     public string Provider { get; set; } = string.Empty; // Foundry, Ollama, OpenAI, etc.
-    
+
     [Required]
     [Url]
     public string Endpoint { get; set; } = string.Empty;
-    
+
     public string? ApiKey { get; set; } // Nullable for local models
-    
+
     public string? ToolInvocationStrategy { get; set; } // "Functools", "ReActJSON", null
-    
+
     [Required]
     public string SystemPromptFile { get; set; } = "prompts/weather-assistant.md";
 }
@@ -512,7 +512,7 @@ public static class ConfigurationExtensions
     {
         if (string.IsNullOrEmpty(value)) return value;
         if (!value.StartsWith("${") || !value.EndsWith("}")) return value;
-        
+
         var varName = value[2..^1]; // Extract variable name
         return Environment.GetEnvironmentVariable(varName);
     }
@@ -605,14 +605,14 @@ public void Dispose()
 @code {
     private AgentThread? _thread;
     private bool _isSending;
-    
+
     private void StartNewChat()
     {
         _thread?.Dispose(); // Clean up old thread
         _thread = Agent.GetNewThread();
         StateHasChanged();
     }
-    
+
     private async Task SendMessage(string userInput)
     {
         _isSending = true;
@@ -627,7 +627,7 @@ public void Dispose()
             StateHasChanged();
         }
     }
-    
+
     public void Dispose()
     {
         _thread?.Dispose();
