@@ -96,6 +96,7 @@
 - [ ] T034 [US3] Preserve security audit logging in FunctoolsHandler
 - [ ] T035 [US3] Preserve tool whitelist validation in FunctoolsHandler
 - [ ] T036 [US3] Preserve rate limiting in FunctoolsHandler
+- [ ] T036a [US3] [OPTIONAL] Create ReActJSONHandler implementing IToolInvocationHandler for models using ReAct JSON format (example handler for extensibility demonstration) in src/LocalConversationalAgent.Agent/Handlers/ReActJSONHandler.cs
 - [ ] T037 [US3] Implement keyed service registration for IToolInvocationHandler in src/LocalConversationalAgent.Agent/Program.cs
 - [ ] T038 [US3] Add conditional handler application based on ToolInvocationStrategy in src/LocalConversationalAgent.Agent/Services/ChatAgentFactory.cs
 - [ ] T039 [US3] Implement native tool model bypass (no handler when ToolInvocationStrategy null) in src/LocalConversationalAgent.Agent/Services/ChatAgentFactory.cs

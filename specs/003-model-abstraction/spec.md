@@ -142,11 +142,11 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 8. **Default Model Unavailable**: Only default model configured but fails to load → Start script catches this, displays error: "Default model '{model}' unavailable. Run bootstrap script: ./scripts/Setup-Environment.ps1"
 9. **Multiple Browser Windows**: User opens chat in multiple browser tabs/windows → Each window is independent Blazor Server circuit, no shared state, each defaults to configured model, independent dropdown locking
 10. **Model Fallback Needed**: Model API fails during conversation → No automatic fallback, fail fast with clear error, user must manually switch model via dropdown in new session
-11. **Configuration Precedence Conflict**: Both appsettings.json and environment variable define `AI__DefaultModel` → Environment variable takes precedence (standard ASP.NET Core), logs INFO: "DefaultModel='{value}' (source: Environment Variable, overrides appsettings.json)"
-12. **Handler Registration Missing**: Configuration specifies `"ToolInvocationStrategy": "CustomHandler"` but not registered in DI → Fails fast at startup: "Handler 'CustomHandler' not found. Registered handlers: [Functools]. Verify registration in Program.cs."
-13. **Malformed API Key Variable**: Configuration has `"ApiKey": "${OPENAI_API_KEY}"` but environment variable not set → Local models log warning and continue, cloud models fail at first API call with clear guidance
-14. **OpenMeteo SDK Failure**: `openmeteo_sdk` fails to initialize (corrupted package, version conflict) → First tool call throws with context: "OpenMeteo SDK initialization failed. Verify openmeteo_sdk v1.23.0 package restored. Inner exception: {error}"
-15. **Prompt File Missing**: `SystemPromptFile` path points to non-existent file → Fails fast at startup: "System prompt file not found: '{path}'. Working directory: {cwd}. Verify file exists and is readable."
+11. **Configuration Precedence Conflict**: Both appsettings.json and environment variable define `AI__DefaultModel` → Environment variable takes precedence (standard ASP.NET Core), logs INFO: "DefaultModel='{value}' (source: Environment Variable, overrides appsettings.json)" (covered by FR-020)
+12. **Handler Registration Missing**: Configuration specifies `"ToolInvocationStrategy": "CustomHandler"` but not registered in DI → Fails fast at startup: "Handler 'CustomHandler' not found. Registered handlers: [Functools]. Verify registration in Program.cs." (covered by FR-020)
+13. **Malformed API Key Variable**: Configuration has `"ApiKey": "${OPENAI_API_KEY}"` but environment variable not set → Local models log warning and continue, cloud models fail at first API call with clear guidance (covered by FR-020)
+14. **OpenMeteo SDK Failure**: `openmeteo_sdk` fails to initialize (corrupted package, version conflict) → First tool call throws with context: "OpenMeteo SDK initialization failed. Verify openmeteo_sdk v1.23.0 package restored. Inner exception: {error}" (covered by FR-020)
+15. **Prompt File Missing**: `SystemPromptFile` path points to non-existent file → Fails fast at startup: "System prompt file not found: '{path}'. Working directory: {cwd}. Verify file exists and is readable." (covered by FR-020)
 
 ## Requirements *(mandatory)*
 
@@ -154,7 +154,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 
 - **FR-001**: System MUST support local models (Phi-4 Mini via Foundry/Ollama as default, Qwen 2.5 VL 3B via Ollama) and cloud providers (Azure OpenAI, OpenAI, Google Gemini) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI`)
 - **FR-002**: System MUST provide model-specific prompt management through provider pattern
-- **FR-003**: System MUST support pluggable tool invocation handlers via `IToolInvocationHandler` interface, allowing models with custom tool formats (e.g., functools) to define their own parsing and execution logic. Handler selection controlled by `ToolInvocationStrategy` configuration property (e.g., "Native", "Functools", "ReActJSON"). Optional - only applied when model lacks native tool calling support.
+- **FR-003**: System MUST support pluggable tool invocation handlers via `IToolInvocationHandler` interface, allowing models with custom tool formats (e.g., functools) to define their own parsing and execution logic. Handler selection controlled by `ToolInvocationStrategy` configuration property (e.g., "Functools", "ReActJSON", or null for native tool calling). Handlers conditionally applied via Agent Framework middleware only when `ToolInvocationStrategy` is non-null/non-empty, enabling native tool models to bypass custom parsing overhead.
 - **FR-004**: System MUST allow prompt customization per model type through injectable providers
 - **FR-005**: System MUST fail fast at startup with clear error if configured model is not supported
 - **FR-006**: System MUST expose model capabilities (native tools vs custom format) through provider interface
@@ -171,7 +171,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **FR-017**: Start script MUST validate that configured default model is available before starting application
 - **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
 - **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework. SDK entities from `openmeteo_sdk` MUST remain internal to the assembly with no types exposed in public API surface (encapsulation verified via unit tests only)
-- **FR-020**: Configuration validation MUST implement comprehensive error handling: (1) Handler registration failures fail fast with clear message listing available handlers, (2) Environment variables take precedence over appsettings.json with info logging, (3) API keys support `${ENV_VAR_NAME}` substitution with security warnings for plain-text keys, (4) Prompt file path validation fails fast showing attempted path and working directory, (5) Start scripts validate model availability before launch, (6) SDK dependency resolution failures show required version and resolution steps, (7) JSON Schema provided for IDE validation
+- **FR-020**: Configuration validation MUST implement comprehensive error handling: (1) Handler registration failures fail fast with clear message listing available handlers (T018), (2) Environment variables take precedence over appsettings.json with info logging (T016), (3) API keys support `${ENV_VAR_NAME}` substitution with security warnings for plain-text keys (T015), (4) Prompt file path validation fails fast showing attempted path and working directory (T026-T027), (5) Start scripts validate model availability before launch (T095-T098), (6) SDK dependency resolution failures show required version and resolution steps (T099-T100), (7) JSON Schema provided for IDE validation (T012)
 - **FR-021**: Model dropdown MUST meet WCAG 2.1 AA accessibility: (1) Full keyboard navigation (Tab, Enter, Arrow keys, Escape), (2) ARIA labels (`aria-label`, `aria-describedby`) for screen readers, (3) Screen reader announces all states including disabled state explanation, (4) Visible focus indicator with 3:1 contrast ratio minimum, (5) Disabled state uses multiple visual cues (color + icon) for color blindness support, (6) Error states use `role="alert"` for screen reader announcement
 
 ### Key Entities
@@ -776,6 +776,8 @@ var agent = chatClient.CreateAIAgent(
 ### Related Specifications
 
 - **001-phi4-weather-assistant**: Original weather assistant implementation
-- **002-functools-invocation-layer**: Functools parsing and execution layer
+- **002-functools-invocation-layer**: Functools parsing and execution layer (superseded by IToolInvocationHandler interface - functools becomes one pluggable handler implementation rather than always-on decorator)
 
-This specification enhances 002 by making it conditional rather than always-on.
+This specification enhances 002 by making tool invocation handlers conditional (applied only when `ToolInvocationStrategy` is non-null) and interface-based (enabling multiple handler types: Functools, ReActJSON, etc.).
+
+**Note**: Refactoring checklist from 002-functools-invocation-layer is deprecated - 003 tasks supersede that checklist with comprehensive migration plan to Agent Framework.

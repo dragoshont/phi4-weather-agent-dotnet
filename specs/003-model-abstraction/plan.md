@@ -32,7 +32,7 @@ Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framewo
 **Scale/Scope**:
 
 - **Projects**: 7 projects after changes (Agent, Web, AppHost, ServiceDefaults, Tools, Agent.Tests, **OpenMeteo**)
-- **Impact**: ~1630 LOC across all components (500 middleware, 200 agent migration, 100 tools, 150 state, 50 prompts, 50 rename, 100 UI, 110 scripts, 200 docs, 150 OpenMeteo assembly, 20 validation/accessibility, 3 package files)
+- **Impact**: Estimated ~1680 LOC total across all components, broken down by work area: 500 (middleware/handlers), 200 (agent migration), 100 (tool conversion), 150 (state management), 50 (prompt system), 50 (project rename), 100 (UI dropdown), 110 (scripts), 200 (documentation), 150 (OpenMeteo assembly), 50 (automated tests for SC-012/SC-013), 20 (validation/accessibility enhancements), 3 (package manifests)
 - **Model Support**: 2 local models initially (Phi-4 Mini default, Qwen 2.5 VL 3B), cloud-ready structure (GPT-4o, Gemini configuration deferred)
 
 ## Constitution Check

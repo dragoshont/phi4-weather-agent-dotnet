@@ -292,6 +292,8 @@ dotnet add package openmeteo_sdk --version 1.23.0
 
 ### Decision: IPromptProvider with File System Access
 
+**Note**: This section references `IPromptProvider` interface defined in implementation tasks T007 (interface creation) and T025-T029 (implementation). See "Key Entities" in spec.md for data model.
+
 **Research Findings**:
 
 Prompt loading strategies:
@@ -427,11 +429,12 @@ public class CompositePromptProvider : IPromptProvider
 
 **Design Decision**: Combine Options pattern + Data Annotations + JSON Schema for comprehensive validation.
 
-**ModelConfiguration Model**:
+**Configuration Models**:
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
 
+// Root configuration object (maps to "AI" section in appsettings.json)
 public class AIConfiguration
 {
     [Required]
@@ -441,6 +444,7 @@ public class AIConfiguration
     public Dictionary<string, ModelConfiguration> Models { get; set; } = new();
 }
 
+// Per-model configuration (nested under AI:Models:{model-id} in appsettings.json)
 public class ModelConfiguration
 {
     [Required]
