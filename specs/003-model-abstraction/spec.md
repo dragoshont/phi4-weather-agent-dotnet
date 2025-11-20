@@ -132,16 +132,21 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 
 ### Edge Cases
 
-- What happens when configuration specifies unsupported model type? (System should fail fast at startup with clear error message)
-- How does system handle missing prompt provider for configured model? (Should throw at startup, not runtime)
-- What if model supports both native tools AND custom formats? (Configuration allows override - set `ToolInvocationStrategy` to force custom handler)
-- How to handle model switching mid-conversation? (Not supported - dropdown disabled after first message, requires new chat session)
-- What if custom handler is mistakenly applied to cloud model with native tools? (Should work but with performance overhead - log warning)
-- What if user selects model but API key is missing? (Should show error when attempting to send first message: "API key required for {provider}")
-- How to display long endpoint URLs in dropdown? (Show truncated in dropdown, full details in documentation)
-- What if only default model is available but it fails to load? (Show error at startup: "Default model '{model}' unavailable. Run bootstrap script.")
-- What if user opens chat in multiple browser windows? (Each window is independent session, no shared state, each defaults to configured model)
-- What if model fallback is needed due to API failure? (No automatic fallback - fail fast with clear error, user must manually switch model via dropdown in new session)
+1. **Unsupported Model Type**: Configuration specifies unsupported model type → System fails fast at startup with error: "Model type '{type}' not supported. Supported types: Foundry, Ollama, OpenAI, AzureOpenAI, GoogleGemini."
+2. **Missing Prompt Provider**: Configured model references non-existent prompt provider → Fails at startup (not runtime) with error showing configured provider and available providers
+3. **Dual Tool Support**: Model supports both native tools AND custom formats → Configuration allows override via `ToolInvocationStrategy` to force custom handler, logs INFO message explaining performance impact
+4. **Mid-Conversation Model Switching**: User attempts model switch mid-conversation → Not supported, dropdown disabled after first message, requires new chat session
+5. **Handler on Native Model**: Custom handler mistakenly applied to cloud model with native tools → Works but with performance overhead, logs WARNING: "Handler '{handler}' applied to model with native tool support. Consider removing ToolInvocationStrategy for better performance."
+6. **Missing API Key**: User selects cloud model but API key missing/invalid → Error when sending first message: "API key required for {provider}. Set ${ENV_VAR_NAME} or update appsettings.json."
+7. **Long Endpoint URLs**: Dropdown needs to display very long endpoint URLs → Show truncated with ellipsis in dropdown (max 50 chars), full URL in tooltip/documentation
+8. **Default Model Unavailable**: Only default model configured but fails to load → Start script catches this, displays error: "Default model '{model}' unavailable. Run bootstrap script: ./scripts/Setup-Environment.ps1"
+9. **Multiple Browser Windows**: User opens chat in multiple browser tabs/windows → Each window is independent Blazor Server circuit, no shared state, each defaults to configured model, independent dropdown locking
+10. **Model Fallback Needed**: Model API fails during conversation → No automatic fallback, fail fast with clear error, user must manually switch model via dropdown in new session
+11. **Configuration Precedence Conflict**: Both appsettings.json and environment variable define `AI__DefaultModel` → Environment variable takes precedence (standard ASP.NET Core), logs INFO: "DefaultModel='{value}' (source: Environment Variable, overrides appsettings.json)"
+12. **Handler Registration Missing**: Configuration specifies `"ToolInvocationStrategy": "CustomHandler"` but not registered in DI → Fails fast at startup: "Handler 'CustomHandler' not found. Registered handlers: [Functools]. Verify registration in Program.cs."
+13. **Malformed API Key Variable**: Configuration has `"ApiKey": "${OPENAI_API_KEY}"` but environment variable not set → Local models log warning and continue, cloud models fail at first API call with clear guidance
+14. **OpenMeteo SDK Failure**: `openmeteo_sdk` fails to initialize (corrupted package, version conflict) → First tool call throws with context: "OpenMeteo SDK initialization failed. Verify openmeteo_sdk v1.23.0 package restored. Inner exception: {error}"
+15. **Prompt File Missing**: `SystemPromptFile` path points to non-existent file → Fails fast at startup: "System prompt file not found: '{path}'. Working directory: {cwd}. Verify file exists and is readable."
 
 ## Requirements *(mandatory)*
 
@@ -166,6 +171,8 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **FR-017**: Start script MUST validate that configured default model is available before starting application
 - **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
 - **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework. SDK entities from `openmeteo_sdk` MUST remain internal to the assembly with no types exposed in public API surface (encapsulation verified via unit tests only)
+- **FR-020**: Configuration validation MUST implement comprehensive error handling: (1) Handler registration failures fail fast with clear message listing available handlers, (2) Environment variables take precedence over appsettings.json with info logging, (3) API keys support `${ENV_VAR_NAME}` substitution with security warnings for plain-text keys, (4) Prompt file path validation fails fast showing attempted path and working directory, (5) Start scripts validate model availability before launch, (6) SDK dependency resolution failures show required version and resolution steps, (7) JSON Schema provided for IDE validation
+- **FR-021**: Model dropdown MUST meet WCAG 2.1 AA accessibility: (1) Full keyboard navigation (Tab, Enter, Arrow keys, Escape), (2) ARIA labels (`aria-label`, `aria-describedby`) for screen readers, (3) Screen reader announces all states including disabled state explanation, (4) Visible focus indicator with 3:1 contrast ratio minimum, (5) Disabled state uses multiple visual cues (color + icon) for color blindness support, (6) Error states use `role="alert"` for screen reader announcement
 
 ### Key Entities
 
@@ -196,6 +203,8 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **SC-009**: Bootstrap script successfully downloads both Phi-4 Mini and Qwen 2.5 VL 3B models (verified by `ollama list` or Foundry status)
 - **SC-010**: Start script validates model availability before launch (fails fast with clear error if model missing)
 - **SC-011**: Weather tools exist in dedicated `LocalConversationalAgent.OpenMeteo` assembly with complete SDK encapsulation - no `openmeteo_sdk` types exposed in public API, only tool method signatures visible to Agent project (verified by API surface inspection and unit tests)
+- **SC-012**: Configuration validation covers all error scenarios with fail-fast behavior and actionable messages: missing handler registration detected at startup, invalid `DefaultModel` reference lists available models, missing prompt files show attempted path, API key security warnings logged, environment variable precedence applied correctly, start script validates model availability
+- **SC-013**: Accessibility compliance verified: axe DevTools reports zero violations, keyboard-only navigation passes, NVDA/JAWS screen readers announce states correctly, focus indicator meets 3:1 contrast ratio, disabled state uses multiple visual cues (color + icon)
 
 ## Scope *(mandatory)*
 
@@ -655,6 +664,22 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Update Agent project to reference OpenMeteo assembly
 - [ ] Update tool discovery to include OpenMeteo assembly tools
 - [ ] Add unit tests for OpenMeteo assembly (only context where SDK types are visible)
+- [ ] Implement handler registration validation with fail-fast and clear error messages
+- [ ] Add configuration precedence documentation and info logging
+- [ ] Implement API key environment variable substitution with security warnings
+- [ ] Add prompt file path validation with fail-fast behavior
+- [ ] Implement model availability validation in start scripts
+- [ ] Add SDK dependency resolution error handling
+- [ ] Create JSON Schema for appsettings.json validation
+- [ ] Add ARIA labels to model dropdown (`aria-label`, `aria-describedby`)
+- [ ] Implement keyboard navigation for dropdown (Tab, Enter, Arrow keys, Escape)
+- [ ] Ensure screen reader support announces all dropdown states correctly
+- [ ] Add visible focus indicator with 3:1 contrast ratio minimum
+- [ ] Implement multiple visual cues for disabled state (color + icon)
+- [ ] Add error state with `role="alert"` for dropdown population failures
+- [ ] Validate accessibility with axe DevTools (zero violations target)
+- [ ] Test keyboard-only navigation workflow
+- [ ] Test with NVDA/JAWS screen readers for announcement quality
 
 ## Notes *(optional)*
 
