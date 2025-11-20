@@ -1,10 +1,10 @@
 # Implementation Tasks: Model Abstraction and Domain-Agnostic Project Naming
 
-**Feature**: 003-model-abstraction  
-**Branch**: `003-model-abstraction`  
-**Generated**: 2025-11-20  
-**Total Tasks**: 92  
-**Total LOC**: ~1630 lines
+**Feature**: 003-model-abstraction
+**Branch**: `003-model-abstraction`
+**Generated**: 2025-11-20
+**Total Tasks**: 114 (111 original + 3 automated test tasks for SC-012/SC-013)
+**Total LOC**: ~1680 lines (1630 original + 50 for automated validation tests)
 
 ---
 
@@ -313,6 +313,6 @@ After all tasks complete, verify:
 
 ---
 
-**Total Tasks**: 111  
-**Estimated Effort**: 3-5 days for experienced .NET developer  
-**LOC Impact**: ~1630 lines across 92 tasks + 19 documentation tasks
+**Total Tasks**: 114 (111 original + 3 automated test tasks for SC-012/SC-013)
+**Estimated Effort**: 3-5 days for experienced .NET developer
+**LOC Impact**: ~1680 lines (1630 original + 50 for automated validation tests)
