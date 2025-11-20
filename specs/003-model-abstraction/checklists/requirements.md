@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Model Abstraction and Domain-Agnostic Project Naming
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: November 20, 2025  
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: November 20, 2025
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
