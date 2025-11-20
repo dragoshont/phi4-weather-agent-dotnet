@@ -17,52 +17,52 @@
 
 ### User Story 1 - Switch AI Models Without Code Changes (Priority: P1)
 
-A developer wants to swap from Phi-4 to GPT-4 (or Claude, Llama, etc.) by only changing configuration, without modifying application code or recompiling the solution.
+A developer wants to swap between local models (Phi-4 Mini, Qwen 2.5 VL 3B) or configure cloud models (GPT-4o, Gemini) by only changing configuration, without modifying application code or recompiling the solution.
 
 **Why this priority**: This is the core value proposition - making the system model-agnostic unlocks vendor flexibility, cost optimization, and future-proofing.
 
-**Independent Test**: Can be fully tested by changing a single configuration value (e.g., `"AI:ModelType": "GPT4"`) and verifying the application works with a different model without code changes.
+**Independent Test**: Can be fully tested by changing a single configuration value (e.g., `"AI:DefaultModel": "qwen2.5-vl-3b"`) and verifying the application works with a different model without code changes.
 
 **Acceptance Scenarios**:
 
-1. **Given** application is running with Phi-4, **When** developer changes configuration to `"ModelType": "GPT4"`, **Then** application automatically uses GPT-4's native function calling instead of functools format
-2. **Given** application is configured for GPT-4, **When** developer changes to Claude, **Then** system uses Claude's tool format without functools layer
-3. **Given** application is running, **When** model provider is switched, **Then** system prompt automatically adapts to new model's capabilities
+1. **Given** application is running with Phi-4 Mini (local, default), **When** developer changes configuration to `"DefaultModel": "qwen2.5-vl-3b"`, **Then** application switches to Qwen model without code changes
+2. **Given** application is configured for local model, **When** developer adds cloud model configuration with API key, **Then** system can use cloud provider's native function calling
+3. **Given** application is running, **When** model configuration is switched, **Then** system prompt automatically adapts to new model's capabilities and ToolInvocationStrategy
 4. **Given** developer deploys to production, **When** they specify different model in environment variables, **Then** no recompilation is needed
 
 ---
 
-### User Story 2 - Model-Specific Prompt Management (Priority: P2)
+### User Story 2 - Configuration-Driven Prompt Management (Priority: P2)
 
-A developer wants to define and maintain model-specific system prompts separately, so each model gets optimized instructions for its capabilities (functools vs native tools vs other formats).
+A developer wants to define and maintain system prompts via configuration, so each model gets optimized instructions for its capabilities (functools vs native tools vs other formats).
 
-**Why this priority**: Prompt engineering is model-specific - what works for Phi-4 won't work for GPT-4. Having separate prompts ensures optimal performance per model.
+**Why this priority**: Prompt engineering is model-specific - what works for Phi-4 Mini won't work for cloud models. Configuration-driven prompts ensure optimal performance per model.
 
-**Independent Test**: Can be tested by verifying each model receives its own prompt (e.g., Phi-4 gets functools instructions, GPT-4 doesn't) and checking prompt source location.
+**Independent Test**: Can be tested by verifying each model receives appropriate prompt (e.g., Phi-4 Mini gets functools instructions) loaded from markdown files and checking ToolInvocationStrategy.
 
 **Acceptance Scenarios**:
 
-1. **Given** Phi-4 is selected, **When** chat session starts, **Then** system prompt includes functools format instructions and spelling guidance
-2. **Given** GPT-4 is selected, **When** chat session starts, **Then** system prompt excludes functools format (uses native function calling)
-3. **Given** developer updates Phi-4 prompt, **When** they save changes, **Then** only Phi-4 conversations are affected, not GPT-4
-4. **Given** new model is added, **When** developer creates prompt provider, **Then** system automatically uses appropriate prompt for that model
+1. **Given** Phi-4 Mini is selected, **When** chat session starts, **Then** system prompt includes functools format instructions from `prompts/weather-assistant.md`
+2. **Given** Qwen 2.5 VL 3B is selected, **When** chat session starts, **Then** system uses appropriate ToolInvocationStrategy based on model capabilities
+3. **Given** developer updates system prompt, **When** they save changes to markdown file, **Then** next application restart uses updated prompt
+4. **Given** new model is added, **When** developer updates configuration with model settings, **Then** system automatically uses appropriate prompt and ToolInvocationStrategy
 
 ---
 
 ### User Story 3 - Conditional Functools Layer (Priority: P2)
 
-The system automatically applies the functools invocation layer only for models that need it (Phi-4), and bypasses it for models with native function calling (GPT-4, Claude).
+The system automatically applies the functools invocation layer only for models that need it (Phi-4 Mini, Qwen 2.5 VL 3B initially), and can bypass it for models with native function calling (future cloud models).
 
 **Why this priority**: Performance and correctness - the functools layer adds overhead and complexity that's unnecessary for models with native tool support.
 
-**Independent Test**: Can be tested by inspecting the IChatClient pipeline and verifying functools decorator is present/absent based on model type.
+**Independent Test**: Can be tested by inspecting the ChatClientAgent middleware pipeline and verifying functools middleware is present/absent based on ToolInvocationStrategy.
 
 **Acceptance Scenarios**:
 
-1. **Given** Phi-4 is configured, **When** application starts, **Then** FunctoolsChatClient decorator wraps the base IChatClient
-2. **Given** GPT-4 is configured, **When** application starts, **Then** FunctoolsChatClient is NOT applied to pipeline
+1. **Given** Phi-4 Mini is configured with `ToolInvocationStrategy.Functools`, **When** application starts, **Then** functools middleware is applied to ChatClientAgent
+2. **Given** cloud model is configured with `ToolInvocationStrategy.Native`, **When** application starts, **Then** functools middleware is NOT applied to pipeline
 3. **Given** model with native tools, **When** tool calls are made, **Then** no functools parsing occurs
-4. **Given** model configuration changes, **When** application restarts, **Then** functools layer presence adjusts automatically
+4. **Given** model configuration changes, **When** application restarts, **Then** middleware stack adjusts automatically based on ToolInvocationStrategy
 
 ---
 
@@ -95,13 +95,13 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support multiple AI providers (Azure OpenAI, OpenAI, Azure AI, Ollama, Foundry Local) and models (Phi-4, GPT-4, Claude, Llama) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI`)
+- **FR-001**: System MUST support local models (Phi-4 Mini via Foundry/Ollama as default, Qwen 2.5 VL 3B via Ollama) and cloud providers (Azure OpenAI, OpenAI, Google Gemini) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI`)
 - **FR-002**: System MUST provide model-specific prompt management through provider pattern
 - **FR-003**: System MUST conditionally apply functools invocation layer only for models requiring custom tool formats (controlled by ToolInvocationStrategy enum: Native, Functools, ReActJSON, ReActXML)
 - **FR-004**: System MUST allow prompt customization per model type through injectable providers
 - **FR-005**: System MUST fail fast at startup with clear error if configured model is not supported
 - **FR-006**: System MUST expose model capabilities (native tools vs custom format) through provider interface
-- **FR-007**: Configuration MUST allow specifying model type via appsettings.json or environment variables
+- **FR-007**: Configuration MUST allow specifying default model, endpoint, and optional API key via appsettings.json or environment variables (API key required for cloud providers, not needed for local models)
 - **FR-008**: Project names MUST be domain-agnostic (not reference "weather" or specific tools)
 - **FR-009**: Namespaces MUST be refactored to `LocalConversationalAgent.*` naming convention (reflects local-first architecture + conversational interface)
 - **FR-010**: System MUST maintain backward compatibility with existing tool definitions during rename
@@ -110,7 +110,13 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 ### Key Entities
 
 - **PromptProvider**: Encapsulates system prompts (loaded from Markdown files) and model metadata (name, ToolInvocationStrategy)
-- **ModelConfiguration**: Configuration object containing provider type (AzureOpenAI/OpenAI/AzureAI/Ollama/Foundry), endpoint, model name, ToolInvocationStrategy enum, and system prompt file path
+- **ModelConfiguration**: Configuration object containing:
+  - `DefaultModel`: Model identifier (e.g., "phi-4-mini", "qwen2.5-vl-3b", "gpt-4o")
+  - `Provider`: Provider type (Foundry, Ollama, AzureOpenAI, OpenAI, GoogleGemini)
+  - `Endpoint`: Base URL for API (local or cloud)
+  - `ApiKey`: Optional API key (required for cloud providers, null for local)
+  - `ToolInvocationStrategy`: Enum (Native, Functools, ReActJSON, ReActXML)
+  - `SystemPromptFile`: Path to markdown prompt file
 - **ChatClientAgent**: Agent Framework's agent abstraction, conditionally includes functools middleware based on ToolInvocationStrategy
 - **ToolInvocationStrategy**: Enum defining how model handles tool calls (Native = built-in function calling, Functools = custom format requiring parser, ReActJSON/ReActXML = reasoning-action patterns)
 
@@ -118,9 +124,9 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 
 ### Measurable Outcomes
 
-- **SC-001**: Developer can switch from Phi-4 to GPT-4 by changing single configuration value without recompilation (100% configuration-driven)
+- **SC-001**: Developer can switch between local models (Phi-4 Mini ↔ Qwen 2.5 VL 3B) or add cloud models by changing configuration without recompilation (100% configuration-driven)
 - **SC-002**: Each model type receives optimized system prompt (verified by prompt content inspection)
-- **SC-003**: Functools parsing overhead eliminated for models with native tools (measured by request latency reduction of 10-20%)
+- **SC-003**: Functools middleware applied only when `ToolInvocationStrategy.Functools` is configured (eliminates overhead for future native tool models)
 - **SC-004**: All project and namespace names are generic (zero references to "weather" in project structure)
 - **SC-005**: Existing tool implementations work unchanged after project rename (100% backward compatibility)
 - **SC-006**: Adding new model requires only creating prompt provider and updating configuration (no changes to core framework)
@@ -133,7 +139,7 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 - Converting IChatClient usage to ChatClientAgent pattern
 - Adapting FunctoolsChatClient decorator to Agent Framework middleware
 - Converting AIFunction tool definitions to Agent Framework tool pattern
-- Creating `IPromptProvider` interface and implementations for Phi-4, GPT-4
+- Creating `IPromptProvider` interface with configuration-driven prompt loading
 - **Creating prompt storage structure** (`prompts/` directory with Markdown files per use case)
 - Configuration-driven model selection via appsettings.json with ToolInvocationStrategy enum
 - Conditional application of functools middleware based on ToolInvocationStrategy
@@ -145,7 +151,7 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 ### Out of Scope
 
 - Supporting runtime model switching (requires application restart)
-- Creating prompt providers for all possible models (only Phi-4 and GPT-4 initially)
+- Pre-configuring all possible cloud models (configuration structure supports them, but initial implementation focuses on local models: Phi-4 Mini and Qwen 2.5 VL 3B)
 - Implementing model-agnostic tool definition format (tools remain model-independent already)
 - UI changes (application behavior unchanged from user perspective)
 - Database schema changes (no data persistence for model configuration)
@@ -166,7 +172,9 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 ### External Dependencies
 
 - **Microsoft.Agents.AI** (public preview) - Official successor to Semantic Kernel and AutoGen, provides unified agent framework with ChatClientAgent, middleware system, thread-based state management, and multi-agent orchestration
-- Foundry Local or Ollama for local model hosting (Agent Framework supports both via OpenAI-compatible endpoints)
+- **Foundry Local** for Phi-4 Mini hosting (Windows/macOS) - default local model
+- **Ollama** for Qwen 2.5 VL 3B hosting (cross-platform: Windows, Linux, macOS)
+- Cloud provider APIs (Azure OpenAI, OpenAI, Google Gemini) for future cloud model support requiring API keys
 - Existing tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will adapt to Agent Framework's tool pattern
 
 ### Internal Dependencies
@@ -526,9 +534,48 @@ var agent = chatClient.CreateAIAgent(
 - **Multi-agent support**: Graph-based workflows with conditional routing, parallel processing, orchestration patterns (enables future multi-agent scenarios)
 - **ChatClientAgent**: Production-ready agent abstraction designed for tool calling
 - **Middleware system**: Perfect fit for functools layer as middleware component (cleaner than decorator pattern)
-- **Model support**: Built-in support for Azure OpenAI, OpenAI, Azure AI, with extensibility for Ollama and Foundry Local
+- **Model support**: Built-in support for Azure OpenAI, OpenAI, with extensibility for local models (Ollama, Foundry Local) and other cloud providers (Google Gemini)
 - **Cross-platform**: .NET and Python SDKs, works on Windows, Linux, macOS
 - **Future-proof**: Microsoft's official direction for AI agent development going forward
+
+**Initial Model Support**:
+
+- **Phi-4 Mini** (default): 3.8B parameter SLM, local via Foundry Local (Windows/macOS) or Ollama, requires functools for tool calling
+- **Qwen 2.5 VL 3B**: 3B parameter vision-language model, local via Ollama (cross-platform), vision capabilities
+- **Cloud models**: Configuration structure supports Azure OpenAI (GPT-4o), OpenAI, Google Gemini via API keys (implementation deferred, configuration ready)
+
+**Configuration Structure** (appsettings.json):
+
+```json
+{
+  "AI": {
+    "DefaultModel": "phi-4-mini",
+    "Models": {
+      "phi-4-mini": {
+        "Provider": "Foundry",
+        "Endpoint": "http://localhost:60613/v1",
+        "ApiKey": null,
+        "ToolInvocationStrategy": "Functools",
+        "SystemPromptFile": "prompts/weather-assistant.md"
+      },
+      "qwen2.5-vl-3b": {
+        "Provider": "Ollama",
+        "Endpoint": "http://localhost:11434",
+        "ApiKey": null,
+        "ToolInvocationStrategy": "Functools",
+        "SystemPromptFile": "prompts/weather-assistant.md"
+      },
+      "gpt-4o": {
+        "Provider": "OpenAI",
+        "Endpoint": "https://api.openai.com/v1",
+        "ApiKey": "${OPENAI_API_KEY}",
+        "ToolInvocationStrategy": "Native",
+        "SystemPromptFile": "prompts/weather-assistant.md"
+      }
+    }
+  }
+}
+```
 
 **Migration path**:
 
@@ -538,13 +585,13 @@ var agent = chatClient.CreateAIAgent(
 - `AIFunction` tool definitions → Agent Framework tool pattern (similar API)
 - Enables future workflows and multi-agent orchestration
 
-**Why IPromptProvider pattern?**
+**Why configuration-driven prompts?**
 
-- Type-safe: Compile-time model detection
-- Testable: Mock different providers in tests
-- Extensible: Add new models by implementing interface
-- Clear: Each provider documents its requirements
-- DI-friendly: Fits existing architecture
+- **Simplicity**: Single interface, behavior driven by configuration not code
+- **Flexibility**: Same prompt file can be used with different ToolInvocationStrategy settings
+- **Testability**: Mock configuration in tests
+- **Extensibility**: Add new models by updating configuration, not creating new classes
+- **DI-friendly**: Single provider implementation, configuration injected
 
 **Why single prompt per use case (industry standard)?**
 
