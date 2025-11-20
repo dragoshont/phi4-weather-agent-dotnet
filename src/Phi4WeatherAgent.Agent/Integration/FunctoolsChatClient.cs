@@ -1,0 +1,348 @@
+using Microsoft.Extensions.AI;
+using System.Text;
+using System.Text.Json;
+using System.Runtime.CompilerServices;
+using Phi4WeatherAgent.Agent.Parsing;
+using Phi4WeatherAgent.Agent.Dispatching;
+
+namespace Phi4WeatherAgent.Agent.Integration;
+
+/// <summary>
+/// IChatClient decorator that intercepts model responses to parse functools blocks,
+/// execute tools, and re-prompt model with results.
+/// 
+/// Execution flow:
+/// 1. Call inner chat client (get model response)
+/// 2. Scan response for functools blocks using IFunctoolsParser
+/// 3. Extract FunctionCall array
+/// 4. Invoke each tool via IToolInvoker
+/// 5. Convert ToolResult array to ChatMessage array (role=tool)
+/// 6. Append tool messages to conversation history
+/// 7. Re-prompt model with updated history (includes tool results)
+/// 8. Return final assistant response (after tool execution)
+/// </summary>
+public sealed class FunctoolsChatClient : IChatClient
+{
+    private readonly IChatClient _innerClient;
+    private readonly IFunctoolsParser _parser;
+    private readonly IToolInvoker _invoker;
+    private readonly ILogger<FunctoolsChatClient> _logger;
+    private const int MaxRecursionDepth = 10; // Prevent infinite loops
+    
+    // Track tool calls across entire conversation to prevent repeated calls
+    private readonly HashSet<string> _conversationCallSignatures = new();
+
+    public FunctoolsChatClient(
+        IChatClient innerClient,
+        IFunctoolsParser parser,
+        IToolInvoker invoker,
+        ILogger<FunctoolsChatClient> logger)
+    {
+        _innerClient = innerClient ?? throw new ArgumentNullException(nameof(innerClient));
+        _parser = parser ?? throw new ArgumentNullException(nameof(parser));
+        _invoker = invoker ?? throw new ArgumentNullException(nameof(invoker));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public void Dispose() => _innerClient.Dispose();
+
+    public object? GetService(Type serviceType, object? serviceKey = null)
+        => _innerClient.GetService(serviceType, serviceKey);
+
+    public TService? GetService<TService>(object? serviceKey = null) where TService : class
+        => this as TService ?? _innerClient.GetService<TService>(serviceKey);
+
+    public async Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> chatMessages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Reset parser state for new turn
+        _parser.Reset();
+
+        var messagesList = chatMessages.ToList();
+
+        // Call inner client to get initial model response
+        var response = await _innerClient.GetResponseAsync(messagesList, options, cancellationToken);
+
+        // Extract response text from all messages
+        var responseText = string.Join("", response.Messages.Select(m => m.Text ?? ""));
+        if (string.IsNullOrWhiteSpace(responseText))
+        {
+            _logger.LogDebug("Empty response from model, returning as-is");
+            return response;
+        }
+
+        _logger.LogDebug("Model response: {Response}", responseText);
+
+        // Parse functools blocks from response
+        IEnumerable<FunctionCall> functionCalls;
+        try
+        {
+            functionCalls = _parser.Parse(responseText.AsSpan());
+        }
+        catch (ParserException ex)
+        {
+            _logger.LogError(ex, "Failed to parse functools block: {Error}", ex.Message);
+            // Return error as assistant message (don't crash conversation)
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, 
+                $"I encountered an error processing tool calls: {ex.Message}"));
+        }
+
+        var calls = functionCalls.ToList();
+        if (calls.Count == 0)
+        {
+            _logger.LogDebug("No functools blocks detected, returning original response");
+            return response;
+        }
+
+        _logger.LogInformation("Detected {Count} tool calls: {Tools}", 
+            calls.Count, string.Join(", ", calls.Select(c => c.Name)));
+
+        // Invoke each tool
+        var toolResults = new List<ToolResult>();
+        foreach (var call in calls)
+        {
+            try
+            {
+                call.Validate();
+                _logger.LogDebug("Invoking tool: {ToolName} with arguments: {Args}", 
+                    call.Name, call.Arguments);
+
+                var result = await _invoker.InvokeAsync(call.Name, call.Arguments, cancellationToken);
+                toolResults.Add(result);
+
+                if (result.Error != null)
+                {
+                    _logger.LogWarning("Tool {ToolName} failed: {Error}", call.Name, result.Error);
+                }
+                else
+                {
+                    _logger.LogInformation("Tool {ToolName} succeeded in {Duration}ms", 
+                        call.Name, result.Duration?.TotalMilliseconds ?? 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error invoking tool {ToolName}", call.Name);
+                toolResults.Add(new ToolResult
+                {
+                    Name = call.Name,
+                    Error = $"INVOCATION_FAILED: {ex.Message}"
+                });
+            }
+        }
+
+        // Convert tool results to ChatMessages with role=tool or system
+        var toolMessages = ConvertToolResultsToMessages(toolResults);
+
+        // Append original assistant response (with functools block)
+        var updatedMessages = messagesList.ToList();
+        updatedMessages.Add(new ChatMessage(ChatRole.Assistant, responseText));
+
+        // Append tool result messages
+        updatedMessages.AddRange(toolMessages);
+
+        _logger.LogDebug("Re-prompting model with {Count} tool results", toolResults.Count);
+
+        // Re-prompt model with updated history (includes tool results)
+        var finalResponse = await _innerClient.GetResponseAsync(updatedMessages, options, cancellationToken);
+
+        _logger.LogDebug("Final model response after tool execution: {Response}", 
+            string.Join("", finalResponse.Messages.Select(m => m.Text ?? "")));
+
+        return finalResponse;
+    }
+
+    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> chatMessages,
+        ChatOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Reset call signatures at start of each top-level request
+        _conversationCallSignatures.Clear();
+        
+        await foreach (var update in GetStreamingResponseInternalAsync(chatMessages, options, 0, cancellationToken))
+        {
+            yield return update;
+        }
+    }
+
+    private async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseInternalAsync(
+        IEnumerable<ChatMessage> chatMessages,
+        ChatOptions? options,
+        int recursionDepth,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Check recursion depth to prevent infinite loops
+        if (recursionDepth >= MaxRecursionDepth)
+        {
+            _logger.LogError("Maximum recursion depth ({MaxDepth}) exceeded. Stopping to prevent infinite loop.", MaxRecursionDepth);
+            yield return new ChatResponseUpdate 
+            { 
+                Contents = [new TextContent("I apologize, but I encountered an issue processing your request. The system reached maximum recursion depth.")]
+            };
+            yield break;
+        }
+
+        _logger.LogDebug("Processing request at recursion depth {Depth}/{MaxDepth}", recursionDepth, MaxRecursionDepth);
+        // Buffer the streaming response to detect functools
+        // IMPORTANT: We must buffer BEFORE yielding to avoid showing functools to user
+        _parser.Reset();
+        var messagesList = chatMessages.ToList();
+        var fullResponseText = new StringBuilder();
+
+        _logger.LogDebug("Streaming mode - buffering response to detect functools");
+
+        // Collect all streaming updates WITHOUT yielding them yet
+        await foreach (var update in _innerClient.GetStreamingResponseAsync(messagesList, options, cancellationToken))
+        {
+            if (!string.IsNullOrEmpty(update.Text))
+            {
+                fullResponseText.Append(update.Text);
+            }
+        }
+
+        var responseText = fullResponseText.ToString();
+        
+        _logger.LogWarning("BUFFERED RESPONSE (length={Length}): '{Text}'", responseText.Length, responseText);
+        
+        // Try to parse functools
+        IEnumerable<FunctionCall> functionCalls;
+        try
+        {
+            functionCalls = _parser.Parse(responseText.AsSpan());
+        }
+        catch (ParserException ex)
+        {
+            _logger.LogError(ex, "Failed to parse functools in streaming mode: {Error}", ex.Message);
+            functionCalls = new List<FunctionCall>();
+        }
+
+        var calls = functionCalls.ToList();
+        
+        // If no functools detected, yield the buffered response as a single update
+        if (calls.Count == 0)
+        {
+            _logger.LogInformation("No functools detected in stream (length={Length}), returning buffered text", responseText.Length);
+            // Yield the entire buffered response as one update
+            yield return new ChatResponseUpdate 
+            { 
+                Contents = [new TextContent(responseText)]
+            };
+            yield break;
+        }
+
+        _logger.LogWarning("FUNCTOOLS DETECTED! Count={Count}, Tools={Tools}", 
+            calls.Count, string.Join(", ", calls.Select(c => c.Name)));
+
+        // Check for duplicate tool calls across the entire conversation
+        var duplicateCalls = new List<FunctionCall>();
+        
+        foreach (var call in calls)
+        {
+            var signature = $"{call.Name}:{call.Arguments}";
+            if (_conversationCallSignatures.Contains(signature))
+            {
+                duplicateCalls.Add(call);
+                _logger.LogWarning("Duplicate tool call detected: {ToolName} with same arguments was already called in this conversation. Skipping to prevent loop.", call.Name);
+            }
+            else
+            {
+                _conversationCallSignatures.Add(signature);
+            }
+        }
+        
+        // Filter out duplicates
+        var uniqueCalls = calls.Where(c => !duplicateCalls.Contains(c)).ToList();
+        
+        if (uniqueCalls.Count == 0)
+        {
+            _logger.LogWarning("All tool calls were duplicates. Prompting model to answer with existing data.");
+            
+            // Add a system message telling the model to use the data it already has
+            var messagesWithDirective = new List<ChatMessage>(messagesList)
+            {
+                new ChatMessage(ChatRole.System, 
+                    "STOP - You have already called these tools and received the results. " +
+                    "You MUST now provide a natural language answer to the user's question using " +
+                    "the tool results you already have in the conversation history above. " +
+                    "DO NOT call any more tools. Just answer the question.")
+            };
+            
+            // Make one final call to get the answer
+            await foreach (var update in _innerClient.GetStreamingResponseAsync(messagesWithDirective, options, cancellationToken))
+            {
+                yield return update;
+            }
+            yield break;
+        }
+
+        // Execute tools (only unique ones)
+        var toolResults = new List<ToolResult>();
+        foreach (var call in uniqueCalls)
+        {
+            _logger.LogDebug("Invoking tool: {ToolName} with args: {Args}", call.Name, call.Arguments);
+            var result = await _invoker.InvokeAsync(call.Name, call.Arguments, cancellationToken);
+            toolResults.Add(result);
+            
+            if (result.Error != null)
+            {
+                _logger.LogWarning("Tool {ToolName} failed: {Error}", call.Name, result.Error);
+            }
+            else
+            {
+                _logger.LogInformation("Tool {ToolName} succeeded in {Duration}ms", 
+                    call.Name, result.Duration?.TotalMilliseconds);
+            }
+        }
+
+        // Convert results and re-prompt
+        var toolMessages = ConvertToolResultsToMessages(toolResults);
+        var updatedMessages = messagesList.ToList();
+        updatedMessages.Add(new ChatMessage(ChatRole.Assistant, responseText));
+        updatedMessages.AddRange(toolMessages);
+
+        _logger.LogDebug("Re-prompting model with {Count} tool results at depth {Depth}", toolResults.Count, recursionDepth);
+
+        // Recursively handle the response (may contain more functools calls)
+        // Use GetStreamingResponseInternalAsync recursively to handle chained tool calls
+        await foreach (var update in GetStreamingResponseInternalAsync(updatedMessages, options, recursionDepth + 1, cancellationToken))
+        {
+            yield return update;
+        }
+    }
+
+    /// <summary>
+    /// Converts ToolResult array to ChatMessage array with role=tool.
+    /// Format: Clear human-readable text so the model understands what to do next.
+    /// </summary>
+    private List<ChatMessage> ConvertToolResultsToMessages(List<ToolResult> results)
+    {
+        var messages = new List<ChatMessage>();
+
+        foreach (var result in results)
+        {
+            string messageText;
+            
+            if (result.Error != null)
+            {
+                // Error case: explain what went wrong
+                messageText = $"Tool '{result.Name}' failed with error: {result.Error}";
+            }
+            else
+            {
+                // Success case: provide the data in clear format
+                messageText = $"Tool '{result.Name}' returned:\n{result.Content}";
+            }
+
+            // Use System role for tool results (Microsoft.Extensions.AI may not support Tool role yet)
+            messages.Add(new ChatMessage(ChatRole.System, messageText));
+
+            _logger.LogDebug("Converted tool result to message: {Tool} - {Success}", 
+                result.Name, result.Error == null);
+        }
+
+        return messages;
+    }
+}

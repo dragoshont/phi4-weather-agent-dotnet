@@ -1,0 +1,237 @@
+.weather-comparison {
+    background: var(--color-bg-primary, white);
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.comparison-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-info, #2196f3);
+}
+
+.comparison-header h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a1a);
+    margin: 0 0 0.5rem 0;
+}
+
+.recommendation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--color-bg-info, #e3f2fd);
+    border-left: 4px solid var(--color-info, #2196f3);
+    border-radius: 4px;
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    color: var(--color-text-primary, #1a1a1a);
+}
+
+.recommendation-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.day-card {
+    background: var(--color-bg-secondary, #f5f5f5);
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.day-card:focus-within {
+    outline: 2px solid var(--color-focus, #0066cc);
+    outline-offset: 2px;
+}
+
+.day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+
+.day-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a1a);
+    margin: 0;
+}
+
+.day-date {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #4a4a4a);
+}
+
+.day-weather {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.temperature-range {
+    display: flex;
+    justify-content: space-around;
+    padding: 0.75rem;
+    background: var(--color-bg-primary, white);
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.temp-high {
+    color: var(--color-error, #c41e3a);
+}
+
+.temp-low {
+    color: var(--color-info, #2196f3);
+}
+
+.weather-description {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.weather-code {
+    font-size: 1.5rem;
+}
+
+.precipitation,
+.wind,
+.precipitation-probability {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary, #4a4a4a);
+}
+
+.precipitation-icon,
+.wind-icon {
+    font-size: 1.25rem;
+}
+
+.day-insight {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--color-bg-info, #e3f2fd);
+    border-left: 3px solid var(--color-info, #2196f3);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.insight-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.comparison-summary {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--color-bg-secondary, #f5f5f5);
+    border-left: 4px solid var(--color-success, #0f7a3e);
+    border-radius: 4px;
+}
+
+.comparison-summary h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a1a);
+    margin: 0 0 0.75rem 0;
+}
+
+.comparison-summary ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    list-style-type: disc;
+}
+
+.comparison-summary li {
+    margin-bottom: 0.5rem;
+    color: var(--color-text-primary, #1a1a1a);
+    line-height: 1.5;
+}
+
+.comparison-summary li:last-child {
+    margin-bottom: 0;
+}
+
+.no-data {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-secondary, #4a4a4a);
+    font-style: italic;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .day-card {
+        border: 2px solid currentColor;
+    }
+
+    .recommendation,
+    .day-insight {
+        border-left-width: 5px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .day-card {
+        transition: none;
+    }
+
+    .day-card:hover {
+        transform: none;
+    }
+}
+
+/* Print styles */
+@media print {
+    .weather-comparison {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+
+    .comparison-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .day-card:hover {
+        transform: none;
+        box-shadow: none;
+    }
+}

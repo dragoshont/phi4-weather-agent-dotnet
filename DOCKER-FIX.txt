@@ -1,0 +1,22 @@
+﻿Docker Desktop virtualization issue detected. To fix this:
+
+1. Close Docker Desktop completely (right-click system tray icon > Quit Docker Desktop)
+
+2. Open PowerShell as Administrator and run:
+   bcdedit /set hypervisorlaunchtype auto
+
+3. Restart your computer
+
+4. After restart, verify virtualization is enabled:
+   - Open Task Manager > Performance tab > CPU
+   - Check that 'Virtualization: Enabled' is shown
+
+5. Start Docker Desktop
+
+Alternative if above doesn't work:
+- Check BIOS settings to ensure virtualization (Intel VT-x or AMD-V) is enabled
+- Disable Hyper-V and re-enable it:
+  Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+  Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+
+For now, the application cannot run without Docker Desktop.

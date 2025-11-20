@@ -52,3 +52,37 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Critical .NET patterns
+*.user
+*.suo
+*.userosstate
+.vs/
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# Node modules (for Playwright E2E tests)
+node_modules/
+package-lock.json
+playwright-report/
+test-results/
+
+# Aspire
+.aspire/
+
+# Universal patterns
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.log

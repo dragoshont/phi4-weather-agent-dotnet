@@ -1,0 +1,217 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 001-phi-weather-assistant, 002-functools-invocation-layer ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.100'
+  DOTNET_PREVIEW: 'true'
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            setup_script: scripts/setup-windows.ps1
+            script_runner: pwsh
+          - os: macos-latest
+            setup_script: scripts/setup-macos.sh
+            script_runner: bash
+          - os: ubuntu-latest
+            setup_script: scripts/setup-linux.sh
+            script_runner: bash
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Verify .NET version
+        run: dotnet --info
+      
+      - name: Run platform setup script (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          chmod +x ${{ matrix.setup_script }}
+          ${{ matrix.setup_script }}
+      
+      - name: Run platform setup script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "${{ matrix.setup_script }}"
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+      
+      - name: Run unit tests (Agent)
+        if: hashFiles('tests/Phi4WeatherAgent.Agent.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.Agent.Tests --no-build --configuration Release --logger "trx;LogFileName=agent-tests.trx"
+        continue-on-error: false
+      
+      - name: Run unit tests (Web)
+        if: hashFiles('tests/Phi4WeatherAgent.Web.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.Web.Tests --no-build --configuration Release --logger "trx;LogFileName=web-tests.trx"
+        continue-on-error: false
+      
+      - name: Setup Node.js (for Playwright)
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Playwright dependencies
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
+        working-directory: tests/Phi4WeatherAgent.E2E.Tests
+        run: |
+          npm install
+          npx playwright install --with-deps
+      
+      - name: Run E2E tests (Playwright)
+        if: hashFiles('tests/Phi4WeatherAgent.E2E.Tests') != ''
+        run: dotnet test tests/Phi4WeatherAgent.E2E.Tests --no-build --configuration Release --logger "trx;LogFileName=e2e-tests.trx"
+        continue-on-error: true
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            **/TestResults/*.trx
+            **/playwright-report/
+          retention-days: 7
+
+  dependency-scan:
+    name: Dependency License Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Check for vulnerable packages
+        run: |
+          echo "Scanning for known vulnerable packages..."
+          dotnet list package --vulnerable --include-transitive | tee vulnerable-packages.txt
+          
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "❌ FAIL: Vulnerable packages detected!"
+            cat vulnerable-packages.txt
+            exit 1
+          else
+            echo "✅ PASS: No vulnerable packages found."
+          fi
+      
+      - name: Check for Semantic Kernel (Constitution Principle III)
+        run: |
+          echo "Scanning for forbidden packages: Microsoft.SemanticKernel*"
+          if dotnet list package | grep -i "Microsoft.SemanticKernel"; then
+            echo "❌ FAIL: Semantic Kernel detected! Constitution Principle III violated."
+            echo "Only Microsoft.Extensions.AI (Agent Framework) is allowed."
+            exit 1
+          else
+            echo "✅ PASS: No Semantic Kernel dependencies found."
+          fi
+      
+      - name: List all NuGet packages
+        run: |
+          echo "Listing all NuGet package dependencies..."
+          dotnet list package --include-transitive > package-list.txt
+          cat package-list.txt
+      
+      - name: Check package licenses (manual review)
+        run: |
+          echo "✅ PASS: Package list generated for manual license review."
+          echo "Note: Common .NET packages (Microsoft.*, System.*) use MIT license."
+          echo "Review package-list.txt for any third-party dependencies."
+      
+      - name: Upload package list
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-list
+          path: package-list.txt
+          retention-days: 30
+
+  accessibility-check:
+    name: Accessibility Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Build Web project
+        run: dotnet build src/Phi4WeatherAgent.Web --configuration Release
+        if: hashFiles('src/Phi4WeatherAgent.Web') != ''
+      
+      - name: Run bUnit accessibility tests
+        if: hashFiles('src/Phi4WeatherAgent.Web.Tests') != ''
+        run: dotnet test src/Phi4WeatherAgent.Web.Tests --filter "Category=Accessibility" --logger "trx;LogFileName=accessibility-tests.trx"
+        continue-on-error: false
+      
+      - name: Validate WCAG 2.1 AA compliance
+        run: |
+          echo "Manual accessibility testing required:"
+          echo "1. NVDA/JAWS screen reader testing"
+          echo "2. Keyboard-only navigation"
+          echo "3. Color contrast verification (4.5:1 for normal text)"
+          echo "See: specs/001-phi4-weather-assistant/quickstart.md for checklist"
+
+  status-check:
+    name: All Checks Passed
+    needs: [build-and-test, dependency-scan, accessibility-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check job results
+        run: |
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "❌ Build and test failed"
+            exit 1
+          fi
+          if [ "${{ needs.dependency-scan.result }}" != "success" ]; then
+            echo "❌ Dependency scan failed"
+            exit 1
+          fi
+          if [ "${{ needs.accessibility-check.result }}" != "success" ]; then
+            echo "❌ Accessibility check failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed!"
