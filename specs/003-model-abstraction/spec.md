@@ -111,6 +111,24 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 
 ---
 
+### User Story 6 - Dedicated OpenMeteo Assembly (Priority: P3)
+
+Weather-related tools are extracted to a dedicated assembly `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from the generic agent framework, enabling reuse for non-weather agents.
+
+**Why this priority**: Architectural clarity and reusability - separating weather domain logic from core agent framework makes the architecture easier to clone for other domains (code assistant, data analyst) without carrying weather-specific dependencies.
+
+**Independent Test**: Can be tested by verifying weather tools (GeocodingTools, WeatherTools, AirQualityTools) exist in separate `LocalConversationalAgent.OpenMeteo` assembly and are referenced as external dependency by Agent project.
+
+**Acceptance Scenarios**:
+
+1. **Given** current weather tools in `LocalConversationalAgent.Tools`, **When** extracted to new assembly, **Then** new `LocalConversationalAgent.OpenMeteo` project contains GeocodingTools, WeatherTools, AirQualityTools
+2. **Given** OpenMeteo assembly created, **When** Agent project references it, **Then** tools remain discoverable and functional via Agent Framework tool registration
+3. **Given** developer wants to build non-weather agent, **When** they clone repository, **Then** they can remove OpenMeteo assembly reference without affecting core agent framework
+4. **Given** OpenMeteo assembly contains HTTP clients, **When** tools make API calls, **Then** Polly retry policies and OpenMeteo-specific logic remain encapsulated in assembly
+5. **Given** solution structure, **When** viewed, **Then** clear separation between generic agent framework (`LocalConversationalAgent.Agent`, `.Web`, `.Tools`) and domain-specific implementation (`LocalConversationalAgent.OpenMeteo`)
+
+---
+
 ### Edge Cases
 
 - What happens when configuration specifies unsupported model type? (System should fail fast at startup with clear error message)
@@ -146,6 +164,7 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **FR-016**: Bootstrap script MUST support downloading and configuring both Phi-4 Mini and Qwen 2.5 VL 3B models via Ollama/Foundry
 - **FR-017**: Start script MUST validate that configured default model is available before starting application
 - **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
+- **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework
 
 ### Key Entities
 
@@ -175,6 +194,7 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **SC-008**: Model selection dropdown displays provider, model name, and endpoint type clearly (verified by UI inspection)
 - **SC-009**: Bootstrap script successfully downloads both Phi-4 Mini and Qwen 2.5 VL 3B models (verified by `ollama list` or Foundry status)
 - **SC-010**: Start script validates model availability before launch (fails fast with clear error if model missing)
+- **SC-011**: Weather tools exist in dedicated `LocalConversationalAgent.OpenMeteo` assembly, separate from core agent framework (verified by solution structure inspection)
 
 ## Scope *(mandatory)*
 
@@ -197,6 +217,7 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **Updating bootstrap scripts** to download and configure Phi-4 Mini and Qwen 2.5 VL 3B models
 - **Updating start scripts** to validate model availability before application launch
 - **Updating README** with comprehensive model configuration documentation, UI workflow, and troubleshooting guide
+- **Extracting weather tools to dedicated assembly** `LocalConversationalAgent.OpenMeteo` containing GeocodingTools, WeatherTools, AirQualityTools, and OpenMeteo API client implementations
 
 ### Out of Scope
 
@@ -239,6 +260,8 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - Bootstrap scripts (setup-dependencies.ps1, bootstrap.sh) - require Qwen model download logic
 - Start scripts (start-dev.ps1, start.sh) - require model availability validation
 - README.md - requires comprehensive update with model configuration and UI workflow
+- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly
+- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly
 
 ## Non-Functional Requirements *(optional)*
 
@@ -584,7 +607,8 @@ var agent = chatClient.CreateAIAgent(
 | **Bootstrap script updates** | **~50 lines** | **Low** | **Low (Ollama commands)** |
 | **Start script validation** | **~30 lines** | **Low** | **Low (model check logic)** |
 | **README documentation** | **~200 lines** | **Low** | **Low (documentation)** |
-| **Total Estimated Impact** | **~1480 lines** | **Medium** | **Low-Medium** |
+| **OpenMeteo assembly extraction** | **~300 lines** | **Medium** | **Low (move existing code)** |
+| **Total Estimated Impact** | **~1780 lines** | **Medium** | **Low-Medium** |
 
 ### Backward Compatibility Strategy
 
@@ -622,6 +646,11 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Update README with model configuration section
 - [ ] Update README with model selection UI workflow documentation
 - [ ] Update README with troubleshooting guide for model setup issues
+- [ ] Create new `LocalConversationalAgent.OpenMeteo` assembly
+- [ ] Move GeocodingTools, WeatherTools, AirQualityTools to OpenMeteo assembly
+- [ ] Move OpenMeteo HTTP client implementations to OpenMeteo assembly
+- [ ] Update Agent project to reference OpenMeteo assembly
+- [ ] Update tool discovery to include OpenMeteo assembly tools
 
 ## Notes *(optional)*
 
