@@ -27,7 +27,7 @@ A developer wants to swap between local models (Phi-4 Mini, Qwen 2.5 VL 3B) or c
 
 1. **Given** application is running with Phi-4 Mini (local, default), **When** developer changes configuration to `"DefaultModel": "qwen2.5-vl-3b"`, **Then** application switches to Qwen model without code changes
 2. **Given** application is configured for local model, **When** developer adds cloud model configuration with API key, **Then** system can use cloud provider's native function calling
-3. **Given** application is running, **When** model configuration is switched, **Then** system prompt automatically adapts to new model's capabilities and ToolInvocationStrategy
+3. **Given** application is running, **When** model configuration is switched, **Then** system prompt automatically adapts and appropriate `IToolInvocationHandler` is applied (or none if native tool support)
 4. **Given** developer deploys to production, **When** they specify different model in environment variables, **Then** no recompilation is needed
 
 ---
@@ -43,26 +43,27 @@ A developer wants to define and maintain system prompts via configuration, so ea
 **Acceptance Scenarios**:
 
 1. **Given** Phi-4 Mini is selected, **When** chat session starts, **Then** system prompt includes functools format instructions from `prompts/weather-assistant.md`
-2. **Given** Qwen 2.5 VL 3B is selected, **When** chat session starts, **Then** system uses appropriate ToolInvocationStrategy based on model capabilities
+2. **Given** Qwen 2.5 VL 3B is selected, **When** chat session starts, **Then** system applies appropriate `IToolInvocationHandler` (e.g., `FunctoolsHandler`) based on configuration
 3. **Given** developer updates system prompt, **When** they save changes to markdown file, **Then** next application restart uses updated prompt
-4. **Given** new model is added, **When** developer updates configuration with model settings, **Then** system automatically uses appropriate prompt and ToolInvocationStrategy
+4. **Given** new model is added, **When** developer updates configuration with model settings and optional handler, **Then** system automatically uses appropriate prompt and `IToolInvocationHandler` implementation
 
 ---
 
-### User Story 3 - Conditional Functools Layer (Priority: P2)
+### User Story 3 - Pluggable Tool Invocation Handlers (Priority: P2)
 
-The system automatically applies the functools invocation layer only for models that need it (Phi-4 Mini, Qwen 2.5 VL 3B initially), and can bypass it for models with native function calling (future cloud models).
+The system supports pluggable tool invocation handlers via `IToolInvocationHandler` interface, allowing models without native tool calling (e.g., Phi-4 Mini, Qwen 2.5 VL 3B) to use custom handlers (e.g., `FunctoolsHandler`), while models with native support (e.g., GPT-4o) bypass handlers entirely.
 
-**Why this priority**: Performance and correctness - the functools layer adds overhead and complexity that's unnecessary for models with native tool support.
+**Why this priority**: Performance, correctness, and extensibility - custom handlers add overhead unnecessary for native tool models, and interface-based design allows adding new handlers without modifying core framework.
 
-**Independent Test**: Can be tested by inspecting the ChatClientAgent middleware pipeline and verifying functools middleware is present/absent based on ToolInvocationStrategy.
+**Independent Test**: Can be tested by inspecting the ChatClientAgent middleware pipeline and verifying appropriate `IToolInvocationHandler` implementation is present/absent based on `ToolInvocationStrategy` configuration.
 
 **Acceptance Scenarios**:
 
-1. **Given** Phi-4 Mini is configured with `ToolInvocationStrategy.Functools`, **When** application starts, **Then** functools middleware is applied to ChatClientAgent
-2. **Given** cloud model is configured with `ToolInvocationStrategy.Native`, **When** application starts, **Then** functools middleware is NOT applied to pipeline
-3. **Given** model with native tools, **When** tool calls are made, **Then** no functools parsing occurs
-4. **Given** model configuration changes, **When** application restarts, **Then** middleware stack adjusts automatically based on ToolInvocationStrategy
+1. **Given** Phi-4 Mini is configured with `"ToolInvocationStrategy": "Functools"`, **When** application starts, **Then** `FunctoolsHandler` implementing `IToolInvocationHandler` is applied to ChatClientAgent
+2. **Given** cloud model is configured with `"ToolInvocationStrategy": null` (or omitted), **When** application starts, **Then** no custom handler is applied to pipeline (native tool calling used)
+3. **Given** model with native tools, **When** tool calls are made, **Then** no custom parsing occurs (direct native function calling)
+4. **Given** model configuration changes, **When** application restarts, **Then** middleware stack adjusts automatically - applies handler if `ToolInvocationStrategy` is set, bypasses if null
+5. **Given** developer creates new handler (e.g., `ReActJSONHandler`), **When** they implement `IToolInvocationHandler` and register in DI, **Then** configuration can reference new handler via `"ToolInvocationStrategy": "ReActJSON"` without core framework changes
 
 ---
 
@@ -112,14 +113,16 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 
 ### Edge Cases
 
-- What happens when configuration specifies unsupported model type? (System should fail fast with clear error message)
+- What happens when configuration specifies unsupported model type? (System should fail fast at startup with clear error message)
 - How does system handle missing prompt provider for configured model? (Should throw at startup, not runtime)
-- What if model supports both native tools AND custom formats? (Configuration should allow override)
+- What if model supports both native tools AND custom formats? (Configuration allows override - set `ToolInvocationStrategy` to force custom handler)
 - How to handle model switching mid-conversation? (Not supported - dropdown disabled after first message, requires new chat session)
-- What if functools layer is mistakenly applied to cloud model? (Should work but with performance overhead - log warning)
+- What if custom handler is mistakenly applied to cloud model with native tools? (Should work but with performance overhead - log warning)
 - What if user selects model but API key is missing? (Should show error when attempting to send first message: "API key required for {provider}")
-- How to display long endpoint URLs in dropdown? (Truncate with tooltip showing full endpoint)
-- What if only default model is available but it fails to load? (Show error in dropdown: "Default model unavailable")
+- How to display long endpoint URLs in dropdown? (Show truncated in dropdown, full details in documentation)
+- What if only default model is available but it fails to load? (Show error at startup: "Default model '{model}' unavailable. Run bootstrap script.")
+- What if user opens chat in multiple browser windows? (Each window is independent session, no shared state, each defaults to configured model)
+- What if model fallback is needed due to API failure? (No automatic fallback - fail fast with clear error, user must manually switch model via dropdown in new session)
 
 ## Requirements *(mandatory)*
 
@@ -127,7 +130,7 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 
 - **FR-001**: System MUST support local models (Phi-4 Mini via Foundry/Ollama as default, Qwen 2.5 VL 3B via Ollama) and cloud providers (Azure OpenAI, OpenAI, Google Gemini) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI`)
 - **FR-002**: System MUST provide model-specific prompt management through provider pattern
-- **FR-003**: System MUST conditionally apply functools invocation layer only for models requiring custom tool formats (controlled by ToolInvocationStrategy enum: Native, Functools, ReActJSON, ReActXML)
+- **FR-003**: System MUST support pluggable tool invocation handlers via `IToolInvocationHandler` interface, allowing models with custom tool formats (e.g., functools) to define their own parsing and execution logic. Handler selection controlled by `ToolInvocationStrategy` configuration property (e.g., "Native", "Functools", "ReActJSON"). Optional - only applied when model lacks native tool calling support.
 - **FR-004**: System MUST allow prompt customization per model type through injectable providers
 - **FR-005**: System MUST fail fast at startup with clear error if configured model is not supported
 - **FR-006**: System MUST expose model capabilities (native tools vs custom format) through provider interface
@@ -152,10 +155,11 @@ A user can select which AI model to use from a dropdown in the chat UI before st
   - `Provider`: Provider type (Foundry, Ollama, AzureOpenAI, OpenAI, GoogleGemini)
   - `Endpoint`: Base URL for API (local or cloud)
   - `ApiKey`: Optional API key (required for cloud providers, null for local)
-  - `ToolInvocationStrategy`: Enum (Native, Functools, ReActJSON, ReActXML)
+  - `ToolInvocationStrategy`: String or null (e.g., "Functools", "ReActJSON", null for native). Maps to `IToolInvocationHandler` implementation. Optional - omit for models with native tool support.
   - `SystemPromptFile`: Path to markdown prompt file
 - **ChatClientAgent**: Agent Framework's agent abstraction, conditionally includes functools middleware based on ToolInvocationStrategy
-- **ToolInvocationStrategy**: Enum defining how model handles tool calls (Native = built-in function calling, Functools = custom format requiring parser, ReActJSON/ReActXML = reasoning-action patterns)
+- **IToolInvocationHandler**: Interface for model-specific tool invocation logic, with implementations like `FunctoolsHandler`, `ReActJSONHandler`, etc. Allows adding new handlers without modifying core framework.
+- **ToolInvocationStrategy**: Configuration property (string) specifying which handler to use (e.g., "Native", "Functools", "ReActJSON"). Maps to `IToolInvocationHandler` implementation. Optional - null/empty for models with native tool calling.
 
 ## Success Criteria *(mandatory)*
 
@@ -163,7 +167,7 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 
 - **SC-001**: Developer can switch between local models (Phi-4 Mini ↔ Qwen 2.5 VL 3B) or add cloud models by changing configuration without recompilation (100% configuration-driven)
 - **SC-002**: Each model type receives optimized system prompt (verified by prompt content inspection)
-- **SC-003**: Functools middleware applied only when `ToolInvocationStrategy.Functools` is configured (eliminates overhead for future native tool models)
+- **SC-003**: Custom tool invocation handlers (e.g., `FunctoolsHandler`) applied only when `ToolInvocationStrategy` configuration is set (null/omitted = native tool calling, eliminates overhead for models with native support)
 - **SC-004**: All project and namespace names are generic (zero references to "weather" in project structure)
 - **SC-005**: Existing tool implementations work unchanged after project rename (100% backward compatibility)
 - **SC-006**: Adding new model requires only creating prompt provider and updating configuration (no changes to core framework)
@@ -253,12 +257,27 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - Prompt providers should support composition (e.g., base prompt + model-specific additions)
 - System should allow custom prompt providers via DI registration
 
-## Open Questions *(optional)*
+## Resolved Questions *(optional)*
 
-1. Should model configuration support fallback chains? (e.g., try GPT-4o, fallback to Phi-4 Mini if API unavailable)
-2. Do we need model-specific validation of tool results? (e.g., cloud models expect JSON, local models may accept plain text)
-3. Should dropdown show additional model metadata (e.g., parameter count, capabilities like vision)?
-4. How to handle model selection persistence across browser sessions? (Use localStorage or always default to config?)
+### Q1: Model Fallback Strategy
+
+- **Decision**: No fallback chains - fail fast with clear error messages
+- **Rationale**: Simple design, explicit error handling, users guided to bootstrap script if model unavailable. Eliminates complex retry logic and makes debugging easier.
+
+### Q2: Model-Specific Tool Handling
+
+- **Decision**: Interface-based ToolInvocationStrategy handlers
+- **Rationale**: Different models require different tooling handling (e.g., local models typically don't support out-of-the-box tool calling). `ToolInvocationStrategy` configuration points to a handler class (e.g., "Functools") that implements a reusable `IToolInvocationHandler` interface. This allows adding new handlers for model-specific peculiarities without modifying core framework. Optional - only needed for models lacking native tool support.
+
+### Q3: Dropdown Metadata Display
+
+- **Decision**: Minimal format - Provider, model name, endpoint type only
+- **Rationale**: Clean, simple UI. Users rely on documentation for detailed model capabilities. Format: "Provider: model-name (endpoint-type)" (e.g., "Foundry: phi-4-mini (Local)")
+
+### Q4: Model Selection Persistence
+
+- **Decision**: Always default to config - no persistence
+- **Rationale**: Every page load resets to `AI:DefaultModel` from appsettings.json. Simple, predictable, configuration-driven. Chat is not persisted; opening in another window resets chat session and model selection.
 
 ## Migration Analysis *(mandatory for migrations)*
 
@@ -335,29 +354,41 @@ services.AddSingleton<IChatClient>(sp =>
 
 **Why Obsolete**: Decorator pattern is verbose, hard to compose with other middleware, doesn't integrate with Agent Framework's telemetry.
 
-**Replacement**: Agent Framework middleware
+**Replacement**: Interface-based handler with Agent Framework middleware
 
 ```csharp
-// FunctoolsMiddleware.cs - Agent Framework middleware
-public class FunctoolsMiddleware : IAgentMiddleware
+// IToolInvocationHandler.cs - Interface for pluggable handlers
+public interface IToolInvocationHandler
+{
+    Task<AgentRunResponse> InvokeAsync(
+        AgentInvokeContext context,
+        AgentMiddlewareDelegate next);
+}
+
+// FunctoolsHandler.cs - Implementation for functools format
+public class FunctoolsHandler : IToolInvocationHandler
 {
     public async Task<AgentRunResponse> InvokeAsync(
         AgentInvokeContext context,
         AgentMiddlewareDelegate next)
     {
-        // 1. Inject functools format if ToolInvocationStrategy == Functools
+        // 1. Inject functools format into prompt
         // 2. Call next middleware
         // 3. Parse functools response if present
         // 4. Return (tool execution handled by framework)
     }
 }
 
-// Service registration (cleaner)
+// Service registration (configuration-driven)
 services.AddSingleton<ChatClientAgent>(sp =>
 {
     var agent = chatClient.CreateAIAgent(tools: weatherTools);
-    if (config.ToolInvocationStrategy == ToolInvocationStrategy.Functools)
-        agent.AddMiddleware<FunctoolsMiddleware>();
+    var strategy = config.ToolInvocationStrategy; // e.g., "Functools" or null
+    if (!string.IsNullOrEmpty(strategy))
+    {
+        var handler = sp.GetRequiredService<IToolInvocationHandler>(strategy);
+        agent.AddMiddleware(handler);
+    }
     return agent;
 });
 ```
@@ -478,7 +509,7 @@ var messages = new List<ChatMessage>
 public interface IPromptProvider
 {
     string GetSystemPrompt();
-    ToolInvocationStrategy ToolInvocationStrategy { get; }
+    string? ToolInvocationStrategy { get; } // Maps to IToolInvocationHandler or null
 }
 
 // Phi4PromptProvider.cs
@@ -489,8 +520,8 @@ public class Phi4PromptProvider : IPromptProvider
     public string GetSystemPrompt() =>
         File.ReadAllText(_config["AI:SystemPromptFile"]); // prompts/weather-assistant.md
 
-    public ToolInvocationStrategy ToolInvocationStrategy =>
-        ToolInvocationStrategy.Functools;
+    public string? ToolInvocationStrategy =>
+        _config["AI:Models:phi-4-mini:ToolInvocationStrategy"]; // "Functools" or null
 }
 
 // Usage
@@ -542,7 +573,7 @@ var agent = chatClient.CreateAIAgent(
 
 | Component | LOC to Change | Complexity | Risk Level |
 |-----------|---------------|------------|------------|
-| FunctoolsChatClient → Middleware | ~500 lines | High | Medium (well-tested pattern) |
+| FunctoolsChatClient → IToolInvocationHandler + FunctoolsHandler | ~500 lines | High | Medium (well-tested pattern, adds interface) |
 | IChatClient → ChatClientAgent | ~200 lines | Medium | Low (straightforward API) |
 | Tool registration | ~100 lines | Low | Low (simpler API) |
 | Conversation state management | ~150 lines | Medium | Low (framework handles it) |
@@ -567,8 +598,9 @@ var agent = chatClient.CreateAIAgent(
 ### Refactoring Checklist
 
 - [ ] Install `Microsoft.Agents.AI` package
+- [ ] Create `IToolInvocationHandler` interface for pluggable tool handling
 - [ ] Create `IPromptProvider` interface and implementations
-- [ ] Convert `FunctoolsChatClient` decorator → `FunctoolsMiddleware`
+- [ ] Convert `FunctoolsChatClient` decorator → `FunctoolsHandler` implementing `IToolInvocationHandler`
 - [ ] Replace `IChatClient` direct usage → `ChatClientAgent`
 - [ ] Update tool registration from `AIFunction` → Agent Framework pattern
 - [ ] Migrate conversation state from manual list → `AgentThread`
@@ -638,7 +670,7 @@ var agent = chatClient.CreateAIAgent(
         "Provider": "OpenAI",
         "Endpoint": "https://api.openai.com/v1",
         "ApiKey": "${OPENAI_API_KEY}",
-        "ToolInvocationStrategy": "Native",
+        "ToolInvocationStrategy": null,
         "SystemPromptFile": "prompts/weather-assistant.md"
       }
     }
