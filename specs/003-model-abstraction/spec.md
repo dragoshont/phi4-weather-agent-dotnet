@@ -140,6 +140,9 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **FR-013**: Model dropdown MUST show each option in format: `Provider: model-name (endpoint-type)` where endpoint-type is "Local" or "Cloud"
 - **FR-014**: Model dropdown MUST be disabled (locked) after user sends first message in chat session to prevent mid-conversation model switching
 - **FR-015**: Default model from `AI:DefaultModel` configuration MUST be pre-selected when chat page loads or new session starts
+- **FR-016**: Bootstrap script MUST support downloading and configuring both Phi-4 Mini and Qwen 2.5 VL 3B models via Ollama/Foundry
+- **FR-017**: Start script MUST validate that configured default model is available before starting application
+- **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
 
 ### Key Entities
 
@@ -166,6 +169,8 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **SC-006**: Adding new model requires only creating prompt provider and updating configuration (no changes to core framework)
 - **SC-007**: Users can select any configured model from dropdown before starting conversation (100% UI-driven model selection)
 - **SC-008**: Model selection dropdown displays provider, model name, and endpoint type clearly (verified by UI inspection)
+- **SC-009**: Bootstrap script successfully downloads both Phi-4 Mini and Qwen 2.5 VL 3B models (verified by `ollama list` or Foundry status)
+- **SC-010**: Start script validates model availability before launch (fails fast with clear error if model missing)
 
 ## Scope *(mandatory)*
 
@@ -185,6 +190,9 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - Updating documentation and README to reflect Agent Framework architecture
 - **Adding model selection dropdown to Chat UI** with format `Provider: model-name (endpoint-type)`
 - Implementing dropdown disable logic after first message sent in chat session
+- **Updating bootstrap scripts** to download and configure Phi-4 Mini and Qwen 2.5 VL 3B models
+- **Updating start scripts** to validate model availability before application launch
+- **Updating README** with comprehensive model configuration documentation, UI workflow, and troubleshooting guide
 
 ### Out of Scope
 
@@ -213,6 +221,8 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - **Microsoft.Agents.AI** (public preview) - Official successor to Semantic Kernel and AutoGen, provides unified agent framework with ChatClientAgent, middleware system, thread-based state management, and multi-agent orchestration
 - **Foundry Local** for Phi-4 Mini hosting (Windows/macOS) - default local model
 - **Ollama** for Qwen 2.5 VL 3B hosting (cross-platform: Windows, Linux, macOS)
+  - Requires downloading model: `ollama pull qwen2.5-vl:3b-instruct`
+  - Model size: ~2.4GB download
 - Cloud provider APIs (Azure OpenAI, OpenAI, Google Gemini) for future cloud model support requiring API keys
 - Existing tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will adapt to Agent Framework's tool pattern
 
@@ -222,6 +232,9 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 - Tool registry and discovery mechanism
 - Aspire AppHost orchestration
 - Blazor Web UI chat component (Chat.razor) - requires model selection dropdown integration
+- Bootstrap scripts (setup-dependencies.ps1, bootstrap.sh) - require Qwen model download logic
+- Start scripts (start-dev.ps1, start.sh) - require model availability validation
+- README.md - requires comprehensive update with model configuration and UI workflow
 
 ## Non-Functional Requirements *(optional)*
 
@@ -537,7 +550,10 @@ var agent = chatClient.CreateAIAgent(
 | Project/namespace rename | ~50 files | Medium | Low (IDE refactoring) |
 | Package updates | 3 files | Low | Low (dependency update) |
 | **Model selection dropdown UI** | **~100 lines** | **Low** | **Low (standard Blazor component)** |
-| **Total Estimated Impact** | **~1100 lines** | **Medium** | **Low-Medium** |
+| **Bootstrap script updates** | **~50 lines** | **Low** | **Low (Ollama commands)** |
+| **Start script validation** | **~30 lines** | **Low** | **Low (model check logic)** |
+| **README documentation** | **~200 lines** | **Low** | **Low (documentation)** |
+| **Total Estimated Impact** | **~1480 lines** | **Medium** | **Low-Medium** |
 
 ### Backward Compatibility Strategy
 
@@ -568,6 +584,12 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Implement dropdown population from `AI:Models` configuration
 - [ ] Implement dropdown disable logic after first message sent
 - [ ] Format dropdown options as `Provider: model-name (endpoint-type)`
+- [ ] Update bootstrap script to download Qwen 2.5 VL 3B via Ollama
+- [ ] Update bootstrap script to verify Phi-4 Mini availability in Foundry/Ollama
+- [ ] Update start script to validate configured default model exists before launch
+- [ ] Update README with model configuration section
+- [ ] Update README with model selection UI workflow documentation
+- [ ] Update README with troubleshooting guide for model setup issues
 
 ## Notes *(optional)*
 
