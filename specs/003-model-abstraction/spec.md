@@ -124,8 +124,9 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 1. **Given** current weather tools in `LocalConversationalAgent.Tools`, **When** extracted to new assembly, **Then** new `LocalConversationalAgent.OpenMeteo` project contains GeocodingTools, WeatherTools, AirQualityTools
 2. **Given** OpenMeteo assembly created, **When** Agent project references it, **Then** tools remain discoverable and functional via Agent Framework tool registration
 3. **Given** developer wants to build non-weather agent, **When** they clone repository, **Then** they can remove OpenMeteo assembly reference without affecting core agent framework
-4. **Given** OpenMeteo assembly contains HTTP clients, **When** tools make API calls, **Then** Polly retry policies and OpenMeteo-specific logic remain encapsulated in assembly
-5. **Given** solution structure, **When** viewed, **Then** clear separation between generic agent framework (`LocalConversationalAgent.Agent`, `.Web`, `.Tools`) and domain-specific implementation (`LocalConversationalAgent.OpenMeteo`)
+4. **Given** OpenMeteo assembly wraps openmeteo_sdk, **When** tools make API calls, **Then** SDK types remain internal to assembly with no leakage to Agent or other projects (except unit tests)
+5. **Given** OpenMeteo assembly contains openmeteo_sdk reference, **When** consumed by Agent project, **Then** only tool method signatures are visible (no SDK entity types exposed in public API)
+6. **Given** solution structure, **When** viewed, **Then** clear separation between generic agent framework (`LocalConversationalAgent.Agent`, `.Web`, `.Tools`) and domain-specific implementation (`LocalConversationalAgent.OpenMeteo`)
 
 ---
 
@@ -164,7 +165,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **FR-016**: Bootstrap script MUST support downloading and configuring both Phi-4 Mini and Qwen 2.5 VL 3B models via Ollama/Foundry
 - **FR-017**: Start script MUST validate that configured default model is available before starting application
 - **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
-- **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework
+- **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework. SDK entities from `openmeteo_sdk` MUST remain internal to the assembly with no types exposed in public API surface (encapsulation verified via unit tests only)
 
 ### Key Entities
 
@@ -194,7 +195,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **SC-008**: Model selection dropdown displays provider, model name, and endpoint type clearly (verified by UI inspection)
 - **SC-009**: Bootstrap script successfully downloads both Phi-4 Mini and Qwen 2.5 VL 3B models (verified by `ollama list` or Foundry status)
 - **SC-010**: Start script validates model availability before launch (fails fast with clear error if model missing)
-- **SC-011**: Weather tools exist in dedicated `LocalConversationalAgent.OpenMeteo` assembly, separate from core agent framework (verified by solution structure inspection)
+- **SC-011**: Weather tools exist in dedicated `LocalConversationalAgent.OpenMeteo` assembly with complete SDK encapsulation - no `openmeteo_sdk` types exposed in public API, only tool method signatures visible to Agent project (verified by API surface inspection and unit tests)
 
 ## Scope *(mandatory)*
 
@@ -217,7 +218,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **Updating bootstrap scripts** to download and configure Phi-4 Mini and Qwen 2.5 VL 3B models
 - **Updating start scripts** to validate model availability before application launch
 - **Updating README** with comprehensive model configuration documentation, UI workflow, and troubleshooting guide
-- **Extracting weather tools to dedicated assembly** `LocalConversationalAgent.OpenMeteo` containing GeocodingTools, WeatherTools, AirQualityTools, and OpenMeteo API client implementations
+- **Extracting weather tools to dedicated assembly** `LocalConversationalAgent.OpenMeteo` containing GeocodingTools, WeatherTools, AirQualityTools, with `openmeteo_sdk` fully encapsulated (no SDK types in public API surface)
 
 ### Out of Scope
 
@@ -244,7 +245,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 ### External Dependencies
 
 - **Microsoft.Agents.AI** (public preview) - Official successor to Semantic Kernel and AutoGen, provides unified agent framework with ChatClientAgent, middleware system, thread-based state management, and multi-agent orchestration
-- **openmeteo_sdk** v1.23.0 (NuGet) - Official OpenMeteo SDK for weather API integration, used in `LocalConversationalAgent.OpenMeteo` assembly
+- **openmeteo_sdk** v1.23.0 (NuGet) - Official OpenMeteo SDK for weather API integration, encapsulated within `LocalConversationalAgent.OpenMeteo` assembly (SDK types not exposed to other projects)
 - **Foundry Local** for Phi-4 Mini hosting (Windows/macOS) - default local model
 - **Ollama** for Qwen 2.5 VL 3B hosting (cross-platform: Windows, Linux, macOS)
   - Requires downloading model: `ollama pull qwen2.5-vl:3b-instruct`
@@ -261,8 +262,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - Bootstrap scripts (setup-dependencies.ps1, bootstrap.sh) - require Qwen model download logic
 - Start scripts (start-dev.ps1, start.sh) - require model availability validation
 - README.md - requires comprehensive update with model configuration and UI workflow
-- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly
-- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly
+- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly with SDK encapsulation (no openmeteo_sdk types exposed)
 
 ## Non-Functional Requirements *(optional)*
 
@@ -608,7 +608,7 @@ var agent = chatClient.CreateAIAgent(
 | **Bootstrap script updates** | **~50 lines** | **Low** | **Low (Ollama commands)** |
 | **Start script validation** | **~30 lines** | **Low** | **Low (model check logic)** |
 | **README documentation** | **~200 lines** | **Low** | **Low (documentation)** |
-| **OpenMeteo assembly extraction** | **~150 lines** | **Low** | **Low (wrapper over openmeteo_sdk NuGet package)** |
+| **OpenMeteo assembly extraction** | **~150 lines** | **Low** | **Low (encapsulated wrapper over openmeteo_sdk, no SDK leakage)** |
 | **Total Estimated Impact** | **~1630 lines** | **Medium** | **Low-Medium** |
 
 ### Backward Compatibility Strategy
@@ -650,9 +650,11 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Create new `LocalConversationalAgent.OpenMeteo` assembly
 - [ ] Add `openmeteo_sdk` v1.23.0 NuGet package reference to OpenMeteo assembly
 - [ ] Move GeocodingTools, WeatherTools, AirQualityTools to OpenMeteo assembly
-- [ ] Wrap `openmeteo_sdk` SDK in service layer within OpenMeteo assembly
+- [ ] Wrap `openmeteo_sdk` SDK in internal service layer (no SDK types in public API)
+- [ ] Verify SDK encapsulation: tool methods return only primitive types or DTOs (no SDK entities exposed)
 - [ ] Update Agent project to reference OpenMeteo assembly
 - [ ] Update tool discovery to include OpenMeteo assembly tools
+- [ ] Add unit tests for OpenMeteo assembly (only context where SDK types are visible)
 
 ## Notes *(optional)*
 
