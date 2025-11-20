@@ -83,13 +83,43 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 
 ---
 
+### User Story 5 - Model Selection via UI Dropdown (Priority: P1)
+
+A user can select which AI model to use from a dropdown in the chat UI before starting a conversation, with the default model pre-selected from configuration.
+
+**Why this priority**: Core user-facing feature that enables model switching without restarting the application or editing configuration files.
+
+**Independent Test**: Can be tested by verifying dropdown appears with configured models, selection persists for chat session, and model cannot be changed after first message.
+
+**Acceptance Scenarios**:
+
+1. **Given** chat page loads, **When** user views the UI, **Then** model dropdown is visible and enabled with default model pre-selected from `DefaultModel` configuration
+2. **Given** dropdown is opened, **When** user views options, **Then** each model shows format: `Provider: model-name (endpoint-type)` where endpoint-type is "Local" for on-premises or "Cloud" for Azure/OpenAI/Gemini
+3. **Given** user has not sent any messages, **When** user selects different model from dropdown, **Then** selection updates and that model will be used when conversation starts
+4. **Given** user sends first message in chat, **When** message is sent, **Then** model dropdown becomes disabled (locked) for remainder of that chat session
+5. **Given** user starts new chat session, **When** chat resets, **Then** model dropdown becomes enabled again with default model pre-selected
+6. **Given** only one model is configured, **When** chat page loads, **Then** dropdown shows single option and remains enabled (allows seeing configuration)
+
+**Example dropdown options**:
+
+- `Foundry: phi-4-mini (Local)`
+- `Ollama: qwen2.5-vl-3b (Local)`
+- `OpenAI: gpt-4o (Cloud)`
+- `Azure: gpt-4o (Cloud)`
+- `Google: gemini-2.0-flash (Cloud)`
+
+---
+
 ### Edge Cases
 
 - What happens when configuration specifies unsupported model type? (System should fail fast with clear error message)
 - How does system handle missing prompt provider for configured model? (Should throw at startup, not runtime)
 - What if model supports both native tools AND custom formats? (Configuration should allow override)
-- How to handle model switching mid-conversation? (Not supported - requires restart to ensure clean state)
-- What if functools layer is mistakenly applied to GPT-4? (Should work but with performance overhead - log warning)
+- How to handle model switching mid-conversation? (Not supported - dropdown disabled after first message, requires new chat session)
+- What if functools layer is mistakenly applied to cloud model? (Should work but with performance overhead - log warning)
+- What if user selects model but API key is missing? (Should show error when attempting to send first message: "API key required for {provider}")
+- How to display long endpoint URLs in dropdown? (Truncate with tooltip showing full endpoint)
+- What if only default model is available but it fails to load? (Show error in dropdown: "Default model unavailable")
 
 ## Requirements *(mandatory)*
 
@@ -106,6 +136,10 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 - **FR-009**: Namespaces MUST be refactored to `LocalConversationalAgent.*` naming convention (reflects local-first architecture + conversational interface)
 - **FR-010**: System MUST maintain backward compatibility with existing tool definitions during rename
 - **FR-011**: System prompts MUST be stored as Markdown files in `prompts/` directory, one file per use case (e.g., `weather-assistant.md`), referenced by configuration, with model-specific behavior controlled by ToolInvocationStrategy
+- **FR-012**: Chat UI MUST display model selection dropdown before first message, pre-populated with all configured models from `AI:Models` section
+- **FR-013**: Model dropdown MUST show each option in format: `Provider: model-name (endpoint-type)` where endpoint-type is "Local" or "Cloud"
+- **FR-014**: Model dropdown MUST be disabled (locked) after user sends first message in chat session to prevent mid-conversation model switching
+- **FR-015**: Default model from `AI:DefaultModel` configuration MUST be pre-selected when chat page loads or new session starts
 
 ### Key Entities
 
@@ -130,6 +164,8 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 - **SC-004**: All project and namespace names are generic (zero references to "weather" in project structure)
 - **SC-005**: Existing tool implementations work unchanged after project rename (100% backward compatibility)
 - **SC-006**: Adding new model requires only creating prompt provider and updating configuration (no changes to core framework)
+- **SC-007**: Users can select any configured model from dropdown before starting conversation (100% UI-driven model selection)
+- **SC-008**: Model selection dropdown displays provider, model name, and endpoint type clearly (verified by UI inspection)
 
 ## Scope *(mandatory)*
 
@@ -147,14 +183,17 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 - Refactoring namespaces to be domain-agnostic (emphasizes local-first + conversational)
 - Updating solution file, launch profiles, and Docker configurations
 - Updating documentation and README to reflect Agent Framework architecture
+- **Adding model selection dropdown to Chat UI** with format `Provider: model-name (endpoint-type)`
+- Implementing dropdown disable logic after first message sent in chat session
 
 ### Out of Scope
 
 - Supporting runtime model switching (requires application restart)
 - Pre-configuring all possible cloud models (configuration structure supports them, but initial implementation focuses on local models: Phi-4 Mini and Qwen 2.5 VL 3B)
 - Implementing model-agnostic tool definition format (tools remain model-independent already)
-- UI changes (application behavior unchanged from user perspective)
+- UI changes beyond model selection dropdown (chat interface behavior unchanged from user perspective)
 - Database schema changes (no data persistence for model configuration)
+- Mid-conversation model switching (dropdown disabled after first message)
 
 ## Assumptions *(mandatory)*
 
@@ -182,7 +221,7 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 - Existing FunctoolsChatClient decorator pattern
 - Tool registry and discovery mechanism
 - Aspire AppHost orchestration
-- Blazor Web UI chat component
+- Blazor Web UI chat component (Chat.razor) - requires model selection dropdown integration
 
 ## Non-Functional Requirements *(optional)*
 
@@ -203,8 +242,10 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 
 ## Open Questions *(optional)*
 
-1. Should model configuration support fallback chains? (e.g., try GPT-4, fallback to Phi-4)
-2. Do we need model-specific validation of tool results? (e.g., GPT-4 expects JSON, Phi-4 accepts plain text)
+1. Should model configuration support fallback chains? (e.g., try GPT-4o, fallback to Phi-4 Mini if API unavailable)
+2. Do we need model-specific validation of tool results? (e.g., cloud models expect JSON, local models may accept plain text)
+3. Should dropdown show additional model metadata (e.g., parameter count, capabilities like vision)?
+4. How to handle model selection persistence across browser sessions? (Use localStorage or always default to config?)
 
 ## Migration Analysis *(mandatory for migrations)*
 
@@ -222,7 +263,7 @@ using Microsoft.Extensions.AI;
 public class ChatService
 {
     private readonly IChatClient _chatClient;
-    
+
     public async Task<ChatResponse> GetResponseAsync(string userMessage)
     {
         var messages = new List<ChatMessage> { new(ChatRole.User, userMessage) };
@@ -244,7 +285,7 @@ public class ChatService
 {
     private readonly ChatClientAgent _agent;
     private readonly AgentThread _thread;
-    
+
     public async Task<AgentRunResponse> GetResponseAsync(string userMessage)
     {
         var response = await _agent.RunAsync(userMessage, _thread);
@@ -263,7 +304,7 @@ public class FunctoolsChatClient : IChatClient
 {
     private readonly IChatClient _innerClient;
     private readonly FunctoolsParser _parser;
-    
+
     public async Task<ChatCompletion> CompleteAsync(...)
     {
         // 1. Inject functools format into prompt
@@ -275,7 +316,7 @@ public class FunctoolsChatClient : IChatClient
 }
 
 // Service registration
-services.AddSingleton<IChatClient>(sp => 
+services.AddSingleton<IChatClient>(sp =>
     new FunctoolsChatClient(baseClient, parser));
 ```
 
@@ -288,7 +329,7 @@ services.AddSingleton<IChatClient>(sp =>
 public class FunctoolsMiddleware : IAgentMiddleware
 {
     public async Task<AgentRunResponse> InvokeAsync(
-        AgentInvokeContext context, 
+        AgentInvokeContext context,
         AgentMiddlewareDelegate next)
     {
         // 1. Inject functools format if ToolInvocationStrategy == Functools
@@ -366,9 +407,9 @@ private List<ChatMessage> _conversationHistory = new();
 private async Task SendMessage()
 {
     _conversationHistory.Add(new ChatMessage(ChatRole.User, userInput));
-    
+
     var response = await _chatClient.CompleteAsync(_conversationHistory, options);
-    
+
     _conversationHistory.Add(new ChatMessage(ChatRole.Assistant, response.Message.Content));
 }
 ```
@@ -431,11 +472,11 @@ public interface IPromptProvider
 public class Phi4PromptProvider : IPromptProvider
 {
     private readonly IConfiguration _config;
-    
-    public string GetSystemPrompt() => 
+
+    public string GetSystemPrompt() =>
         File.ReadAllText(_config["AI:SystemPromptFile"]); // prompts/weather-assistant.md
-    
-    public ToolInvocationStrategy ToolInvocationStrategy => 
+
+    public ToolInvocationStrategy ToolInvocationStrategy =>
         ToolInvocationStrategy.Functools;
 }
 
@@ -495,15 +536,17 @@ var agent = chatClient.CreateAIAgent(
 | System prompt refactoring | ~50 lines | Low | Low (file-based) |
 | Project/namespace rename | ~50 files | Medium | Low (IDE refactoring) |
 | Package updates | 3 files | Low | Low (dependency update) |
-| **Total Estimated Impact** | **~1000 lines** | **Medium** | **Low-Medium** |
+| **Model selection dropdown UI** | **~100 lines** | **Low** | **Low (standard Blazor component)** |
+| **Total Estimated Impact** | **~1100 lines** | **Medium** | **Low-Medium** |
 
 ### Backward Compatibility Strategy
 
 1. **Tool Implementations**: Unchanged - Agent Framework supports same function signature pattern
-2. **Blazor UI**: Minimal changes - only Chat.razor component updated
+2. **Blazor UI**: Model dropdown is additive feature - existing chat functionality preserved
 3. **Aspire Orchestration**: Unchanged - Agent Framework still uses HTTP endpoints
-4. **Configuration**: Additive - new settings, old fallback defaults during transition
+4. **Configuration**: Additive - new `AI:Models` section, old settings ignored if present
 5. **Tests**: Update to use ChatClientAgent, but test logic remains same
+6. **Model Selection**: If no dropdown interaction, default model used (backward compatible behavior)
 
 ### Refactoring Checklist
 
@@ -521,6 +564,10 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Update README with Agent Framework architecture
 - [ ] Update tests to use `ChatClientAgent` and `AgentThread`
 - [ ] Remove obsolete `Microsoft.Extensions.AI` direct usage (keep for types only)
+- [ ] Add model selection dropdown to Chat.razor
+- [ ] Implement dropdown population from `AI:Models` configuration
+- [ ] Implement dropdown disable logic after first message sent
+- [ ] Format dropdown options as `Provider: model-name (endpoint-type)`
 
 ## Notes *(optional)*
 
