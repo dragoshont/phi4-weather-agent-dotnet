@@ -244,6 +244,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 ### External Dependencies
 
 - **Microsoft.Agents.AI** (public preview) - Official successor to Semantic Kernel and AutoGen, provides unified agent framework with ChatClientAgent, middleware system, thread-based state management, and multi-agent orchestration
+- **openmeteo_sdk** v1.23.0 (NuGet) - Official OpenMeteo SDK for weather API integration, used in `LocalConversationalAgent.OpenMeteo` assembly
 - **Foundry Local** for Phi-4 Mini hosting (Windows/macOS) - default local model
 - **Ollama** for Qwen 2.5 VL 3B hosting (cross-platform: Windows, Linux, macOS)
   - Requires downloading model: `ollama pull qwen2.5-vl:3b-instruct`
@@ -607,8 +608,8 @@ var agent = chatClient.CreateAIAgent(
 | **Bootstrap script updates** | **~50 lines** | **Low** | **Low (Ollama commands)** |
 | **Start script validation** | **~30 lines** | **Low** | **Low (model check logic)** |
 | **README documentation** | **~200 lines** | **Low** | **Low (documentation)** |
-| **OpenMeteo assembly extraction** | **~300 lines** | **Medium** | **Low (move existing code)** |
-| **Total Estimated Impact** | **~1780 lines** | **Medium** | **Low-Medium** |
+| **OpenMeteo assembly extraction** | **~150 lines** | **Low** | **Low (wrapper over openmeteo_sdk NuGet package)** |
+| **Total Estimated Impact** | **~1630 lines** | **Medium** | **Low-Medium** |
 
 ### Backward Compatibility Strategy
 
@@ -647,8 +648,9 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Update README with model selection UI workflow documentation
 - [ ] Update README with troubleshooting guide for model setup issues
 - [ ] Create new `LocalConversationalAgent.OpenMeteo` assembly
+- [ ] Add `openmeteo_sdk` v1.23.0 NuGet package reference to OpenMeteo assembly
 - [ ] Move GeocodingTools, WeatherTools, AirQualityTools to OpenMeteo assembly
-- [ ] Move OpenMeteo HTTP client implementations to OpenMeteo assembly
+- [ ] Wrap `openmeteo_sdk` SDK in service layer within OpenMeteo assembly
 - [ ] Update Agent project to reference OpenMeteo assembly
 - [ ] Update tool discovery to include OpenMeteo assembly tools
 
