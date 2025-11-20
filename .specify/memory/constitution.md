@@ -1,30 +1,30 @@
 <!--
 Sync Impact Report:
-- Version: 1.0.0 → 1.3.0 (MINOR bump: expanded Principle III and XII with Foundry native discovery)
+- Version: 1.3.0 → 1.4.0 (MINOR bump: corrected Principle III package names to Microsoft.Agents.AI)
 - Principles Modified:
-  • III. Agent Framework Only → Updated with Foundry ChatOptions.Tools hybrid approach
-  • V. Model Context Protocol → Clarified invocation layer integration details  
-  • XII. Custom Invocation Layer → Expanded with Foundry native template findings and security audit requirement
+  • III. Agent Framework Only → Corrected to Microsoft.Agents.AI (official successor to Semantic Kernel and AutoGen per Microsoft docs)
+  • Technology Stack Constraints → Updated Agent Framework package name
 - Principles Added: None
 - Principles Renamed: None
 - Sections Removed: None
+- Rationale for Change:
+  Microsoft official documentation confirms Microsoft.Agents.AI is the "direct successor" and "next generation"
+  of both Semantic Kernel and AutoGen. Previous constitution incorrectly referenced Microsoft.Extensions.AI
+  as "Agent Framework" when it only provides low-level abstractions (IChatClient, IEmbeddingGenerator).
+  See: https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview
 - Templates Status:
   ✅ plan-template.md - Compatible (reviewed v1.1.0)
   ✅ spec-template.md - Compatible (reviewed v1.1.0)
   ✅ tasks-template.md - Compatible (reviewed v1.1.0)
-  ✅ README.md - Updated (Phi-4 references restored)
-  ✅ Setup scripts - Updated (Phi-4 model download restored)
+  ⚠️ Feature 003 spec/plan/tasks - NOW CORRECT (no changes needed, constitution was wrong)
 - Completed Actions:
-  ✅ README.md reverted from Mistral to Phi-4-mini
-  ✅ Setup-Environment.ps1 model download updated to phi-4-mini
-  ✅ Start-AspireHost.ps1 header updated to Phi-4
-  ✅ Program.cs model ID reverted to Phi-4-mini-instruct-generic-cpu:5
-  ✅ Mistral-7B tested: confirmed NO function calling support
+  ✅ Constitution corrected to align with Microsoft Agent Framework official naming
+  ✅ Principle III updated: Microsoft.Agents.AI (not Microsoft.Extensions.AI)
+  ✅ Technology Stack section updated with correct package versions
+  ✅ Version bumped to 1.4.0 with amendment date 2025-11-20
 - Follow-up TODOs:
-  • Create detailed architecture docs (parser, dispatcher, registry, MCP adapter)
-  • Implement acceptance tests for invocation layer
-  • Add performance benchmarks (parser <10ms, dispatcher <5ms, total <50ms)
-  • Document MCP server integration patterns
+  • Update analysis report to reflect constitution correction (findings A01-A03 now resolved)
+  • No spec/plan/tasks changes needed (they were correct all along)
 -->
 
 # Phi-4 Weather Assistant Constitution
@@ -54,10 +54,13 @@ Sync Impact Report:
 **Rationale**: .NET 10 provides native Agent Framework support, latest C# language features, and Aspire 13 compatibility. Earlier versions lack required abstractions.
 
 ### III. Agent Framework Only
-**Use Microsoft.Extensions.AI Agent Framework exclusively.** Semantic Kernel is forbidden.
+**Use Microsoft Agent Framework exclusively.** Semantic Kernel is forbidden.
 
 **Permitted Packages:**
-- `Microsoft.Extensions.AI` (version 10.0.0-preview.1.25071.7+)
+- `Microsoft.Agents.AI` (version 1.0.0-preview.251002.1+) - Official successor to Semantic Kernel and AutoGen
+- `Microsoft.Agents.AI.OpenAI`
+- `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore`
+- `Microsoft.Extensions.AI` (version 10.0.0-preview.1.25071.7+) - Low-level abstractions (IChatClient, IEmbeddingGenerator)
 - `Microsoft.Extensions.AI.Abstractions`
 - `Microsoft.Extensions.AI.Ollama`
 
@@ -83,7 +86,7 @@ This hybrid approach MUST integrate with Agent Framework's IChatClient abstracti
 
 **Discovery** (2025-11-17): Foundry Local 0.8.103+ includes native functools template at `~/.foundry/cache/models/.../inference_model.json`. The `{Tool}` placeholder expects ChatOptions.Tools, enabling native injection while custom execution layer remains necessary for dispatch.
 
-**Rationale**: Agent Framework is .NET 10's native AI abstraction. Mixing it with Semantic Kernel creates architectural confusion. Foundry's native injection reduces prompt engineering overhead while custom execution maintains security controls.
+**Rationale**: Microsoft Agent Framework (`Microsoft.Agents.AI`) is the official next-generation successor to both Semantic Kernel and AutoGen, created by the same teams. It provides production-ready multi-agent orchestration, enterprise-grade observability, and MCP integration. Agent Framework builds on `Microsoft.Extensions.AI.Abstractions` for low-level services (IChatClient, IEmbeddingGenerator) while providing higher-level agentic capabilities. Foundry's native injection reduces prompt engineering overhead while custom execution maintains security controls.
 
 ### IV. Aspire 13 Orchestration
 **Use .NET Aspire 13 preview** for orchestration, service discovery, and observability.
@@ -275,7 +278,7 @@ This hybrid approach MUST integrate with Agent Framework's IChatClient abstracti
 
 **6. Observability (Great Telemetry)**
 - **Structured Logs**: Tool call attempts, successes, failures, timeouts (JSON format, searchable)
-- **Metrics**: 
+- **Metrics**:
   - Tool invocation latency (P50/P95/P99 per tool)
   - Error rates per tool (count, percentage)
   - Parser throughput (functools blocks/sec)
@@ -343,7 +346,8 @@ The architecture supports both local C# tools and MCP-discovered tools without r
 **Required Stack:**
 - **.NET SDK**: 10.0.100+ (pinned in `global.json`)
 - **Aspire**: 13.0.0-preview.1+ (`Aspire.Hosting.AppHost`, `Aspire.Hosting`)
-- **Agent Framework**: Microsoft.Extensions.AI 10.0.0-preview.1.25071.7+
+- **Agent Framework**: Microsoft.Agents.AI 1.0.0-preview.251002.1+ (official successor to Semantic Kernel and AutoGen)
+- **Low-Level AI Abstractions**: Microsoft.Extensions.AI 10.0.0-preview.1.25071.7+ (IChatClient, IEmbeddingGenerator)
 - **UI Framework**: Blazor Server (from aichatweb template)
 - **Testing**: xUnit 2.9.2+, bUnit 1.31.3+, Playwright 1.49.0+, BenchmarkDotNet 0.14.0+
 - **Resilience**: Polly 8.5.0+
@@ -393,4 +397,4 @@ This constitution is **binding for all code, dependencies, documentation, and ar
 - CI pipeline enforces technology stack constraints (dependency scanning)
 - Code review checklist includes constitution verification
 
-**Version**: 1.2.0 | **Ratified**: 2025-11-16 | **Last Amended**: 2025-11-16
+**Version**: 1.4.0 | **Ratified**: 2025-11-16 | **Last Amended**: 2025-11-20
