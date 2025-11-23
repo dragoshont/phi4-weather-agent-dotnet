@@ -1,14 +1,21 @@
 {
-    "chat.promptFilesRecommendations": {
-        "speckit.constitution": true,
-        "speckit.specify": true,
-        "speckit.plan": true,
-        "speckit.tasks": true,
-        "speckit.implement": true
-    },
-    "chat.tools.terminal.autoApprove": {
-        ".specify/scripts/bash/": true,
-        ".specify/scripts/powershell/": true
-    }
+  "chat.promptFilesRecommendations": {
+    "speckit.constitution": true,
+    "speckit.specify": true,
+    "speckit.plan": true,
+    "speckit.tasks": true,
+    "speckit.implement": true
+  },
+  "chat.tools.terminal.autoApprove": {
+    ".specify/scripts/bash/": true,
+    ".specify/scripts/powershell/": true,
+    "dotnet": true
+  },
+  "chat.tools.terminal.safeMode": false,
+  "chat.tools.terminal.allowedCommands": [
+    "dotnet build",
+    "dotnet test",
+    "dotnet restore",
+    "dotnet publish"
+  ]
 }
-

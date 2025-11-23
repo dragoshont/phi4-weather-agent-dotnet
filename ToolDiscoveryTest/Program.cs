@@ -1,5 +1,5 @@
-﻿using Phi4WeatherAgent.Agent.Registry;
-using Phi4WeatherAgent.Tools;
+using LocalAIAgent.Agent.Registry;
+using LocalAIAgent.Tools;
 using System.Reflection;
 
 // Simulate tool discovery like ToolDiscoveryService does
@@ -24,7 +24,7 @@ foreach (var type in types)
         if (attr != null)
         {
             toolCount++;
-            Console.WriteLine($"✓ Found Tool: {attr.Name}");
+            Console.WriteLine($"? Found Tool: {attr.Name}");
             Console.WriteLine($"  Type: {type.Name}");
             Console.WriteLine($"  Method: {method.Name}");
             Console.WriteLine($"  Description: {attr.Description ?? "(none)"}");
@@ -40,11 +40,11 @@ Console.WriteLine($"Total tools discovered: {toolCount}");
 
 if (toolCount == 0)
 {
-    Console.WriteLine("\n❌ FAILED: No tools found!");
+    Console.WriteLine("\n? FAILED: No tools found!");
     Environment.Exit(1);
 }
 else
 {
-    Console.WriteLine($"\n✓ SUCCESS: Found {toolCount} tool(s)");
+    Console.WriteLine($"\n? SUCCESS: Found {toolCount} tool(s)");
     Environment.Exit(0);
 }

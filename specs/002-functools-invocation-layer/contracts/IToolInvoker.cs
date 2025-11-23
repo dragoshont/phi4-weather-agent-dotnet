@@ -1,4 +1,4 @@
-namespace Phi4WeatherAgent.Agent.Dispatching;
+namespace LocalAIAgent.Agent.Dispatching;
 
 using System.Text.Json;
 using System.Threading;

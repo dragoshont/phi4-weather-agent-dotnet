@@ -5,7 +5,7 @@
 
 ## Summary
 
-Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framework** (`Microsoft.Agents.AI`), creating a configuration-driven model abstraction that supports local models (Phi-4 Mini, Qwen 2.5 VL 3B) and cloud-ready architecture (GPT-4o, Gemini). Implement interface-based tool invocation handlers (`IToolInvocationHandler`) for pluggable model-specific parsing. Rename projects from `Phi4WeatherAgent.*` to `LocalConversationalAgent.*` for domain-agnostic reusability. Extract weather tools to dedicated `LocalConversationalAgent.OpenMeteo` assembly. Add UI dropdown for per-conversation model selection. Primary value: Zero-recompilation model switching and extensible architecture.
+Migrate from `Microsoft.Extensions.AI` direct usage to **Microsoft Agent Framework** (`Microsoft.Agents.AI`), creating a configuration-driven model abstraction that supports local models (Phi-4 Mini, Qwen 2.5 VL 3B) and cloud-ready architecture (GPT-4o, Gemini). Implement interface-based tool invocation handlers (`IToolInvocationHandler`) for pluggable model-specific parsing. Rename projects from `Phi4WeatherAgent.*` to `LocalAIAgent.*` for domain-agnostic reusability. Extract weather tools to dedicated `LocalAIAgent.OpenMeteo` assembly. Add UI dropdown for per-conversation model selection. Primary value: Zero-recompilation model switching and extensible architecture.
 
 ## Technical Context
 
@@ -120,7 +120,7 @@ prompts/                              # NEW DIRECTORY
 
 ```text
 src/
-├── LocalConversationalAgent.Agent/          # Renamed from Phi4WeatherAgent.Agent
+├── LocalAIAgent.Agent/          # Renamed from Phi4WeatherAgent.Agent
 │   ├── Interfaces/
 │   │   ├── IToolInvocationHandler.cs       # NEW: Interface for pluggable handlers
 │   │   └── IPromptProvider.cs               # NEW: Prompt abstraction
@@ -133,14 +133,14 @@ src/
 │   ├── Models/
 │   │   └── ModelConfiguration.cs            # NEW: Configuration model
 │   └── Program.cs                           # UPDATED: DI registration for handlers
-├── LocalConversationalAgent.Web/            # Renamed from Phi4WeatherAgent.Web
+├── LocalAIAgent.Web/            # Renamed from Phi4WeatherAgent.Web
 │   ├── Components/
 │   │   └── Pages/
 │   │       └── Chat.razor                   # UPDATED: Model dropdown + locking logic
 │   └── appsettings.json                     # UPDATED: Multi-model configuration
-├── LocalConversationalAgent.Tools/          # Renamed from Phi4WeatherAgent.Tools
+├── LocalAIAgent.Tools/          # Renamed from Phi4WeatherAgent.Tools
 │   └── [generic tool abstractions]         # NOTE: Weather tools moved to OpenMeteo
-├── LocalConversationalAgent.OpenMeteo/      # NEW: Domain-specific weather tools
+├── LocalAIAgent.OpenMeteo/      # NEW: Domain-specific weather tools
 │   ├── Tools/
 │   │   ├── GeocodingTools.cs               # MOVED: From Tools project
 │   │   ├── WeatherTools.cs                 # MOVED: From Tools project
@@ -149,11 +149,11 @@ src/
 │   │   └── OpenMeteoHttpClient.cs          # HTTP client with Polly retry
 │   └── Models/
 │       └── [OpenMeteo API response models]
-├── LocalConversationalAgent.AppHost/        # Renamed from Phi4WeatherAgent.AppHost
+├── LocalAIAgent.AppHost/        # Renamed from Phi4WeatherAgent.AppHost
 │   └── Program.cs
-├── LocalConversationalAgent.ServiceDefaults/ # Renamed from Phi4WeatherAgent.ServiceDefaults
+├── LocalAIAgent.ServiceDefaults/ # Renamed from Phi4WeatherAgent.ServiceDefaults
 │   └── Extensions.cs
-└── LocalConversationalAgent.Agent.Tests/    # Renamed from Phi4WeatherAgent.Agent.Tests
+└── LocalAIAgent.Agent.Tests/    # Renamed from Phi4WeatherAgent.Agent.Tests
     ├── HandlerTests/
     │   └── FunctoolsHandlerTests.cs        # NEW: Unit tests for handler
     └── ...
@@ -167,7 +167,7 @@ scripts/
 └── ...
 
 Directory.Build.props                        # UPDATED: Package references (Microsoft.Agents.AI)
-LocalConversationalAgent.sln                 # RENAMED: Solution file
+LocalAIAgent.sln                 # RENAMED: Solution file
 global.json                                  # UNCHANGED: Already pins .NET 10
 ```
 
@@ -234,7 +234,7 @@ Extract entities from feature specification and research:
 
 ### 2. API Contracts (`contracts/`)
 
-Generate JSON schemas for configuration:
+Generate JSON schemas and interface documentation:
 
 - **appsettings.schema.json**: AI:Models configuration schema
   - DefaultModel (string, required)
@@ -250,6 +250,11 @@ Generate JSON schemas for configuration:
   - InvokeAsync method signature
   - Context parameter structure
   - Return type (AgentRunResponse)
+
+- **interfaces.md**: C# interface definitions with XML doc comments
+  - IToolInvocationHandler: Task<AgentRunResponse> InvokeAsync(AgentInvokeContext, AgentMiddlewareDelegate)
+  - IPromptProvider: Task<string> GetSystemPromptAsync(string?), string? ToolInvocationStrategy, bool SupportsNativeTools
+  - ModelConfiguration: Properties with data annotations and validation rules
 
 ### 3. Quickstart Guide (`quickstart.md`)
 
@@ -348,7 +353,7 @@ Run `.specify/scripts/powershell/update-agent-context.ps1 -AgentType copilot` to
     - Fail fast with clear error message
 
 11. **Project Rename** (~50 files, MEDIUM complexity)
-    - Rename projects: `Phi4WeatherAgent.*` → `LocalConversationalAgent.*`
+    - Rename projects: `Phi4WeatherAgent.*` → `LocalAIAgent.*`
     - Update namespaces across all files
     - Update solution file
     - Update launch profiles, Docker configs

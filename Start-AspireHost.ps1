@@ -1,20 +1,20 @@
 #!/usr/bin/env pwsh
-# Start Aspire Host for Phi-4 Weather Agent
+# Start Aspire Host for Local AI Agent
 # Ensures prerequisites are running and launches the application
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Starting Phi-4 Weather Agent" -ForegroundColor Cyan
+Write-Host "  Starting Local AI Agent" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ============================================
-# 0. Clean up any running Phi4WeatherAgent processes
+# 0. Clean up any running LocalAIAgent processes
 # ============================================
-$processesToStop = Get-Process -Name "Phi4WeatherAgent.Agent","Phi4WeatherAgent.Web","Phi4WeatherAgent.AppHost","dcpctrl","dcp" -ErrorAction SilentlyContinue
+$processesToStop = Get-Process -Name "LocalAIAgent.Agent","LocalAIAgent.Web","LocalAIAgent.AppHost","dcpctrl","dcp" -ErrorAction SilentlyContinue
 if ($processesToStop) {
-    Write-Host "Stopping existing Phi4WeatherAgent processes..." -ForegroundColor Yellow
+    Write-Host "Stopping existing LocalAIAgent processes..." -ForegroundColor Yellow
     $processesToStop | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
     Write-Host "  OK All processes stopped" -ForegroundColor Green
@@ -77,10 +77,155 @@ if ($foundryStatus -match "http://[^:]+:(\d+)") {
 }
 
 # ============================================
-# 3. Launch Aspire AppHost
+# 3. Validate Model Configuration
 # ============================================
 Write-Host ""
-Write-Host "[3/3] Launching Aspire AppHost..." -ForegroundColor Yellow
+Write-Host "[3/4] Validating model configuration..." -ForegroundColor Yellow
+
+$configPath = "src\LocalAIAgent.Web\appsettings.json"
+if (-not (Test-Path $configPath)) {
+    Write-Host "  ERROR Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+
+try {
+    $config = Get-Content $configPath -Raw | ConvertFrom-Json
+
+    # Check if AI section exists
+    if (-not $config.AI) {
+        Write-Host "  ERROR 'AI' section missing in appsettings.json" -ForegroundColor Red
+        Write-Host "  See README.md for configuration format" -ForegroundColor Yellow
+        exit 1
+    }
+
+    # Check DefaultModel
+    $defaultModel = $config.AI.DefaultModel
+    if (-not $defaultModel) {
+        Write-Host "  ERROR 'AI:DefaultModel' not set in appsettings.json" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "  Default model: $defaultModel" -ForegroundColor Cyan
+
+    # Find model configuration
+    $modelConfig = $null
+    foreach ($model in $config.AI.Models) {
+        if ($model.Name -eq $defaultModel) {
+            $modelConfig = $model
+            break
+        }
+    }
+
+    if (-not $modelConfig) {
+        Write-Host "  ERROR Model '$defaultModel' not found in AI:Models array" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Available models:" -ForegroundColor Yellow
+        foreach ($m in $config.AI.Models) {
+            Write-Host "    - $($m.Name) ($($m.Provider))" -ForegroundColor White
+        }
+        Write-Host ""
+        exit 1
+    }
+
+    # Validate model availability based on provider
+    $provider = $modelConfig.Provider
+    $modelId = $modelConfig.ModelId
+
+    Write-Host "  Provider: $provider" -ForegroundColor Cyan
+    Write-Host "  Model ID: $modelId" -ForegroundColor Cyan
+
+    switch ($provider) {
+        "Ollama" {
+            if (Get-Command ollama -ErrorAction SilentlyContinue) {
+                $ollamaModels = ollama list 2>$null
+                if ($ollamaModels -match [regex]::Escape($modelId)) {
+                    Write-Host "  OK Model available in Ollama" -ForegroundColor Green
+                } else {
+                    Write-Host "  ERROR Model not available in Ollama" -ForegroundColor Red
+                    Write-Host "  Download: ollama pull $modelId" -ForegroundColor Yellow
+                    Write-Host ""
+                    Write-Host "  Available Ollama models:" -ForegroundColor Yellow
+                    ollama list | Select-Object -Skip 1 | ForEach-Object {
+                        if ($_ -match '^(\S+)') {
+                            Write-Host "    - $($Matches[1])" -ForegroundColor White
+                        }
+                    }
+                    Write-Host ""
+                    exit 1
+                }
+            } else {
+                Write-Host "  ERROR Ollama not installed (required for provider 'Ollama')" -ForegroundColor Red
+                Write-Host "  Install: winget install Ollama.Ollama" -ForegroundColor Yellow
+                exit 1
+            }
+        }
+
+        "FoundryLocal" {
+            if (Get-Command foundry -ErrorAction SilentlyContinue) {
+                $foundryCache = foundry cache list 2>$null
+                if ($foundryCache -match [regex]::Escape($modelId)) {
+                    Write-Host "  OK Model cached in Foundry" -ForegroundColor Green
+                } else {
+                    Write-Host "  ERROR Model not cached in Foundry" -ForegroundColor Red
+                    Write-Host "  Download: foundry model download phi-4-mini" -ForegroundColor Yellow
+                    Write-Host ""
+                    exit 1
+                }
+            } else {
+                Write-Host "  ERROR Foundry not installed (required for provider 'FoundryLocal')" -ForegroundColor Red
+                Write-Host "  Install: winget install Microsoft.FoundryLocal" -ForegroundColor Yellow
+                exit 1
+            }
+        }
+
+        "AzureOpenAI" {
+            Write-Host "  INFO Azure OpenAI requires network connection and API key" -ForegroundColor Cyan
+            if ($modelConfig.ApiKey -match '^\$\{.*\}$') {
+                $envVar = $modelConfig.ApiKey -replace '^\$\{|\}$'
+                if (-not (Test-Path "env:$envVar")) {
+                    Write-Host "  WARNING Environment variable not set: $envVar" -ForegroundColor Yellow
+                    Write-Host "  Set: `$env:$envVar = 'your-api-key'" -ForegroundColor Gray
+                }
+            }
+        }
+
+        "OpenAI" {
+            Write-Host "  INFO OpenAI requires network connection and API key" -ForegroundColor Cyan
+            if ($modelConfig.ApiKey -match '^\$\{.*\}$') {
+                $envVar = $modelConfig.ApiKey -replace '^\$\{|\}$'
+                if (-not (Test-Path "env:$envVar")) {
+                    Write-Host "  WARNING Environment variable not set: $envVar" -ForegroundColor Yellow
+                    Write-Host "  Set: `$env:$envVar = 'your-api-key'" -ForegroundColor Gray
+                }
+            }
+        }
+
+        "Gemini" {
+            Write-Host "  INFO Google Gemini requires network connection and API key" -ForegroundColor Cyan
+            if ($modelConfig.ApiKey -match '^\$\{.*\}$') {
+                $envVar = $modelConfig.ApiKey -replace '^\$\{|\}$'
+                if (-not (Test-Path "env:$envVar")) {
+                    Write-Host "  WARNING Environment variable not set: $envVar" -ForegroundColor Yellow
+                    Write-Host "  Set: `$env:$envVar = 'your-api-key'" -ForegroundColor Gray
+                }
+            }
+        }
+
+        default {
+            Write-Host "  WARNING Unknown provider: $provider" -ForegroundColor Yellow
+        }
+    }
+
+} catch {
+    Write-Host "  ERROR Failed to validate configuration: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+# ============================================
+# 4. Launch Aspire AppHost
+# ============================================
+Write-Host ""
+Write-Host "[4/4] Launching Aspire AppHost..." -ForegroundColor Yellow
 Write-Host "  Foundry Port: $($env:FOUNDRY_PORT)" -ForegroundColor Gray
 
 # Set environment variable for HTTP profile
@@ -94,7 +239,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Navigate to AppHost and run
-Push-Location src\Phi4WeatherAgent.AppHost
+Push-Location src\LocalAIAgent.AppHost
 try {
     dotnet run --launch-profile http
 } catch {

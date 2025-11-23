@@ -1,11 +1,62 @@
 .chat-container {
-    position: sticky; 
-    bottom: 0; 
+    position: sticky;
+    bottom: 0;
     padding-left: 1.5rem;
-    padding-right: 1.5rem; 
-    padding-top: 0.75rem; 
-    padding-bottom: 1.5rem; 
-    border-top-width: 1px; 
-    background-color: #F3F4F6; 
+    padding-right: 1.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 1.5rem;
+    border-top-width: 1px;
+    background-color: #F3F4F6;
     border-color: #E5E7EB;
 }
+
+.model-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background-color: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.model-selector-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+}
+
+.model-selector {
+    flex: 1;
+    max-width: 400px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.375rem;
+    background-color: white;
+    color: #111827;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.model-selector:hover:not(:disabled) {
+    border-color: #9CA3AF;
+}
+
+.model-selector:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.model-selector:disabled {
+    background-color: #F3F4F6;
+    color: #6B7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.model-selector-help {
+    font-size: 0.75rem;
+    color: #6B7280;
+    font-style: italic;
+}
+

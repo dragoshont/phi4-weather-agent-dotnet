@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.VectorData;
 
 namespace phi4_weather_agent_dotnet_temp.Services;

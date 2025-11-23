@@ -1,7 +1,7 @@
 using Microsoft.Extensions.AI;
-using Phi4WeatherAgent.Agent.Registry;
+using LocalAIAgent.Agent.Registry;
 
-namespace Phi4WeatherAgent.Agent.Adapters;
+namespace LocalAIAgent.Agent.Adapters;
 
 /// <summary>
 /// Converts ToolMetadata from ToolRegistry to Microsoft.Extensions.AI AIFunction format

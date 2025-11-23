@@ -1,0 +1,146 @@
+@using LocalAIAgent.Agent.Models
+
+@if (Allergen is not null)
+{
+    <div class="allergen-card" role="region" aria-label="Pollen levels for @LocationName">
+        <!-- Location Header -->
+        <div class="allergen-card-header">
+            <h3 class="allergen-location">@LocationName</h3>
+            @if (!string.IsNullOrEmpty(Allergen.Timezone))
+            {
+                <span class="allergen-timezone">@Allergen.Timezone</span>
+            }
+        </div>
+
+        @if (!Allergen.IsEuropeRegion)
+        {
+            <div class="allergen-notice" role="alert">
+                <span class="notice-icon">ℹ️</span>
+                <span class="notice-text">Pollen data is only available for locations in Europe.</span>
+            </div>
+        }
+        else if (Allergen.Severity == AllergySeverity.Unknown)
+        {
+            <div class="allergen-notice" role="alert">
+                <span class="notice-icon">ℹ️</span>
+                <span class="notice-text">No current pollen data available (may be off-season).</span>
+            </div>
+        }
+        else
+        {
+            <!-- Overall Severity Badge -->
+            <div class="allergen-severity" aria-label="Overall allergy severity: @Allergen.Severity">
+                <span class="severity-label">Allergy Risk:</span>
+                <span class="severity-badge @GetSeverityClass(Allergen.Severity)">
+                    @Allergen.Severity
+                </span>
+            </div>
+
+            <!-- Pollen Levels Grid -->
+            <div class="allergen-levels" aria-label="Individual pollen levels">
+                <h4 class="levels-title">Pollen Levels (grains/m³)</h4>
+                <div class="pollen-grid">
+                    @if (Allergen.Pollen.Alder.HasValue && Allergen.Pollen.Alder > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Alder:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Alder:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Alder.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Alder.Value)
+                            </span>
+                        </div>
+                    }
+                    @if (Allergen.Pollen.Birch.HasValue && Allergen.Pollen.Birch > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Birch:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Birch:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Birch.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Birch.Value)
+                            </span>
+                        </div>
+                    }
+                    @if (Allergen.Pollen.Grass.HasValue && Allergen.Pollen.Grass > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Grass:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Grass:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Grass.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Grass.Value)
+                            </span>
+                        </div>
+                    }
+                    @if (Allergen.Pollen.Mugwort.HasValue && Allergen.Pollen.Mugwort > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Mugwort:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Mugwort:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Mugwort.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Mugwort.Value)
+                            </span>
+                        </div>
+                    }
+                    @if (Allergen.Pollen.Olive.HasValue && Allergen.Pollen.Olive > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Olive:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Olive:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Olive.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Olive.Value)
+                            </span>
+                        </div>
+                    }
+                    @if (Allergen.Pollen.Ragweed.HasValue && Allergen.Pollen.Ragweed > 0)
+                    {
+                        <div class="pollen-item">
+                            <span class="pollen-name">Ragweed:</span>
+                            <span class="pollen-value">@($"{Allergen.Pollen.Ragweed:F1}")</span>
+                            <span class="pollen-severity @GetPollenSeverityClass(Allergen.Pollen.Ragweed.Value)">
+                                @GetPollenSeverityLabel(Allergen.Pollen.Ragweed.Value)
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Allergen data to display
+    /// </summary>
+    [Parameter]
+    public AllergenData? Allergen { get; set; }
+
+    /// <summary>
+    /// Location name for display (e.g., "Paris, France")
+    /// </summary>
+    [Parameter]
+    public string LocationName { get; set; } = "Unknown Location";
+
+    private string GetSeverityClass(AllergySeverity severity) => severity switch
+    {
+        AllergySeverity.Low => "severity-low",
+        AllergySeverity.Moderate => "severity-moderate",
+        AllergySeverity.High => "severity-high",
+        AllergySeverity.VeryHigh => "severity-very-high",
+        _ => "severity-unknown"
+    };
+
+    private string GetPollenSeverityClass(double value) => value switch
+    {
+        <= 20 => "severity-low",
+        <= 50 => "severity-moderate",
+        <= 100 => "severity-high",
+        _ => "severity-very-high"
+    };
+
+    private string GetPollenSeverityLabel(double value) => value switch
+    {
+        <= 20 => "Low",
+        <= 50 => "Moderate",
+        <= 100 => "High",
+        _ => "Very High"
+    };
+}

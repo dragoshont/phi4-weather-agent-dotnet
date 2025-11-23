@@ -1,0 +1,196 @@
+@using LocalAIAgent.Agent.Models
+
+<div class="weather-comparison" role="region" aria-label="Weather comparison for @Title">
+    @if (WeatherDays != null && WeatherDays.Any())
+    {
+        <div class="comparison-header">
+            <h3>@Title</h3>
+            @if (!string.IsNullOrEmpty(Recommendation))
+            {
+                <p class="recommendation" role="status" aria-live="polite">
+                    <span class="recommendation-icon">💡</span>
+                    @Recommendation
+                </p>
+            }
+        </div>
+
+        <div class="comparison-grid">
+            @foreach (var day in WeatherDays)
+            {
+                <div class="day-card" role="article" aria-label="Weather for @day.Date.ToString("dddd, MMMM d")">
+                    <div class="day-header">
+                        <h4 class="day-name">@day.Date.ToString("dddd")</h4>
+                        <span class="day-date">@day.Date.ToString("MMMM d")</span>
+                    </div>
+
+                    <div class="day-weather">
+                        <div class="temperature-range">
+                            <span class="temp-high" aria-label="High temperature @day.TemperatureMax degrees Celsius">
+                                ↑ @day.TemperatureMax.ToString("F1")°C
+                            </span>
+                            <span class="temp-low" aria-label="Low temperature @day.TemperatureMin degrees Celsius">
+                                ↓ @day.TemperatureMin.ToString("F1")°C
+                            </span>
+                        </div>
+
+                        <div class="weather-description">
+                            <span class="weather-code">@GetWeatherEmoji(day.WeatherCode)</span>
+                            <span>@day.WeatherDescription</span>
+                        </div>
+
+                        @if (day.PrecipitationSum > 0)
+                        {
+                            <div class="precipitation">
+                                <span class="precipitation-icon">🌧️</span>
+                                <span aria-label="Precipitation @day.PrecipitationSum millimeters">
+                                    @day.PrecipitationSum.ToString("F1") mm
+                                </span>
+                            </div>
+                        }
+
+                        @if (day.WindSpeedMax > 0)
+                        {
+                            <div class="wind">
+                                <span class="wind-icon">💨</span>
+                                <span aria-label="Wind speed @day.WindSpeedMax kilometers per hour">
+                                    @day.WindSpeedMax.ToString("F0") km/h
+                                </span>
+                            </div>
+                        }
+
+                        @if (day.PrecipitationProbabilityMax > 0)
+                        {
+                            <div class="precipitation-probability">
+                                <span aria-label="Precipitation probability @day.PrecipitationProbabilityMax percent">
+                                    ☔ @day.PrecipitationProbabilityMax%
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(day.DayInsight))
+                    {
+                        <div class="day-insight">
+                            <span class="insight-icon">ℹ️</span>
+                            <span>@day.DayInsight</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (WeatherDays.Count() >= 2)
+        {
+            <div class="comparison-summary" role="complementary">
+                <h4>Comparison</h4>
+                <ul>
+                    @foreach (var comparison in GetComparisons())
+                    {
+                        <li>@comparison</li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+    else
+    {
+        <p class="no-data">No weather data available for comparison.</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<DayWeather>? WeatherDays { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Weather Comparison";
+
+    [Parameter]
+    public string? Recommendation { get; set; }
+
+    private string GetWeatherEmoji(int weatherCode)
+    {
+        return weatherCode switch
+        {
+            0 => "☀️",  // Clear sky
+            1 or 2 or 3 => "🌤️",  // Partly cloudy
+            45 or 48 => "🌫️",  // Fog
+            51 or 53 or 55 or 56 or 57 => "🌦️",  // Drizzle
+            61 or 63 or 65 or 66 or 67 => "🌧️",  // Rain
+            71 or 73 or 75 or 77 => "🌨️",  // Snow
+            80 or 81 or 82 => "🌧️",  // Rain showers
+            85 or 86 => "🌨️",  // Snow showers
+            95 or 96 or 99 => "⛈️",  // Thunderstorm
+            _ => "🌡️"  // Unknown
+        };
+    }
+
+    private List<string> GetComparisons()
+    {
+        var comparisons = new List<string>();
+        
+        if (WeatherDays == null || !WeatherDays.Any())
+            return comparisons;
+
+        var days = WeatherDays.ToList();
+        
+        if (days.Count < 2)
+            return comparisons;
+
+        // Temperature comparison
+        var warmestDay = days.OrderByDescending(d => d.TemperatureMax).First();
+        var coldestDay = days.OrderBy(d => d.TemperatureMin).First();
+        
+        if (warmestDay != coldestDay)
+        {
+            comparisons.Add($"{warmestDay.Date:dddd} will be warmer ({warmestDay.TemperatureMax:F1}°C) than {coldestDay.Date:dddd} ({coldestDay.TemperatureMax:F1}°C)");
+        }
+
+        // Precipitation comparison
+        var wetDay = days.OrderByDescending(d => d.PrecipitationSum).FirstOrDefault();
+        var dryDay = days.OrderBy(d => d.PrecipitationSum).FirstOrDefault();
+        
+        if (wetDay != null && dryDay != null && wetDay.PrecipitationSum > 5 && wetDay != dryDay)
+        {
+            comparisons.Add($"{wetDay.Date:dddd} expected to be wetter ({wetDay.PrecipitationSum:F1} mm) than {dryDay.Date:dddd} ({dryDay.PrecipitationSum:F1} mm)");
+        }
+
+        // Wind comparison
+        var windyDay = days.OrderByDescending(d => d.WindSpeedMax).FirstOrDefault();
+        var calmDay = days.OrderBy(d => d.WindSpeedMax).FirstOrDefault();
+        
+        if (windyDay != null && calmDay != null && windyDay.WindSpeedMax > 20 && windyDay != calmDay)
+        {
+            comparisons.Add($"{windyDay.Date:dddd} will be windier ({windyDay.WindSpeedMax:F0} km/h) than {calmDay.Date:dddd} ({calmDay.WindSpeedMax:F0} km/h)");
+        }
+
+        // Clear sky comparison
+        var clearDays = days.Where(d => d.WeatherCode == 0).ToList();
+        if (clearDays.Any() && clearDays.Count < days.Count)
+        {
+            var clearDayNames = string.Join(" and ", clearDays.Select(d => d.Date.ToString("dddd")));
+            comparisons.Add($"{clearDayNames} expected to have clear skies");
+        }
+
+        // Rain probability comparison
+        var rainyDay = days.OrderByDescending(d => d.PrecipitationProbabilityMax).FirstOrDefault();
+        if (rainyDay != null && rainyDay.PrecipitationProbabilityMax > 50)
+        {
+            comparisons.Add($"{rainyDay.Date:dddd} has highest chance of rain ({rainyDay.PrecipitationProbabilityMax}%)");
+        }
+
+        return comparisons;
+    }
+
+    public record DayWeather(
+        DateOnly Date,
+        double TemperatureMax,
+        double TemperatureMin,
+        double PrecipitationSum,
+        double WindSpeedMax,
+        int PrecipitationProbabilityMax,
+        int WeatherCode,
+        string WeatherDescription,
+        string? DayInsight
+    );
+}

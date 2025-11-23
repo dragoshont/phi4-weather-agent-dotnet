@@ -1,6 +1,6 @@
-# Phi-4 Weather Assistant
+# Local AI Agent
 
-**Local-first AI weather assistant** powered by Microsoft Phi-4-mini, .NET 10 Agent Framework, and Aspire 13 orchestration.
+**Configuration-driven multi-model AI assistant** powered by Microsoft Agent Framework, supporting local models (Phi-4 Mini, Qwen 2.5 VL) and cloud-ready architecture (Azure OpenAI, OpenAI, Gemini). Built with .NET 10 and Aspire 13 orchestration.
 
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Aspire 13](https://img.shields.io/badge/Aspire-13.0-512BD4)](https://learn.microsoft.com/en-us/dotnet/aspire/)
@@ -13,11 +13,132 @@
 
 - 🌦️ **Weather Forecasts**: Current conditions + 7-day forecasts powered by OpenMeteo API
 - 🌸 **Pollen/Allergen Data**: Grass, birch, ragweed, and more (Europe only)
-- 🤖 **Local AI Inference**: Phi-4-mini runs on your machine via Foundry Local (Win/macOS) or Ollama (Linux)
-- 🔧 **Custom Invocation Layer**: Parses Phi-4-mini's `functools[...]` format and executes MCP tools
-- 🎯 **MCP Tools**: Structured weather data retrieval using Model Context Protocol
+- 🔄 **Zero-Recompilation Model Switching**: Switch between Phi-4, Qwen, GPT-4o, or other models via configuration
+- 🤖 **Multi-Model Support**: Local (Ollama, Foundry Local) and cloud (Azure OpenAI, OpenAI, Gemini)
+- 🏗️ **Agent Framework Architecture**: Built on Microsoft.Agents.AI with ChatClientAgent and AgentThread
+- 🔌 **Extensible Handler System**: Pluggable IToolInvocationHandler for model-specific tool formats (Functools, ReAct JSON, etc.)
+- 🎯 **MCP-Inspired Tools**: Structured data retrieval using Model Context Protocol patterns
+- 📦 **Modular Assembly Design**: Weather tools encapsulated in separate LocalAIAgent.OpenMeteo assembly
 - ♿ **Accessible**: WCAG 2.1 AA compliant with keyboard navigation and screen reader support
-- 🆓 **Zero Cloud Costs**: No API keys, no subscriptions, all free and open-source
+- 🆓 **Zero Cloud Costs**: Can run entirely local with no API keys or subscriptions
+
+## Architecture
+
+**📚 For detailed architecture diagrams and design principles, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+### Agent Framework Integration
+
+The application uses **Microsoft.Agents.AI** to abstract AI model interactions:
+
+```
+User Request
+    ↓
+ChatAgentService (ChatClientAgent wrapper)
+    ↓
+ChatClientFactory.CreateChatClient(modelKey)
+    ↓
+1. Load ModelConfiguration from appsettings.json
+2. Create base IChatClient (Ollama/Foundry/Azure/OpenAI)
+3. Apply IToolInvocationHandler if ToolInvocationStrategy specified
+4. Return wrapped/unwrapped IChatClient
+    ↓
+Agent Framework (ChatClientAgent + AgentThread)
+    ↓
+Tool Execution (discovered via ToolDiscoveryService)
+```
+
+### Multi-Model Configuration
+
+Models are configured in `appsettings.json` with zero-recompilation switching:
+
+```json
+{
+  "AI": {
+    "DefaultModel": "phi-4-mini",
+    "Models": [
+      {
+        "Name": "phi-4-mini",
+        "Provider": "FoundryLocal",
+        "Endpoint": "http://localhost:5272",
+        "ModelId": "Phi-4-mini-instruct-generic-cpu",
+        "ToolInvocationStrategy": null
+      },
+      {
+        "Name": "qwen-vl-3b",
+        "Provider": "Ollama",
+        "Endpoint": "http://localhost:11434",
+        "ModelId": "qwen2.5-vl:3b-instruct",
+        "ToolInvocationStrategy": "Functools"
+      },
+      {
+        "Name": "gpt-4o",
+        "Provider": "AzureOpenAI",
+        "Endpoint": "https://<resource>.openai.azure.com/",
+        "ModelId": "gpt-4o",
+        "ToolInvocationStrategy": null
+      }
+    ]
+  }
+}
+```
+
+**Key Properties**:
+- `Provider`: Ollama | FoundryLocal | FoundryCloud | AzureOpenAI | OpenAI | Gemini
+- `ToolInvocationStrategy`: Keyed service name for IToolInvocationHandler (null = native tool support)
+- `DefaultModel`: Must match a Models[].Name (validated at startup)
+
+### Tool Invocation Handlers
+
+Models with custom tool formats require handlers:
+
+```csharp
+// Example: Functools handler for Qwen models
+public class FunctoolsHandler : IToolInvocationHandler
+{
+    public IChatClient CreateHandler(IChatClient innerClient)
+    {
+        return new FunctoolsChatClient(innerClient, toolRegistry, logger);
+    }
+}
+
+// Register with keyed service pattern
+builder.Services.AddKeyedSingleton<IToolInvocationHandler, FunctoolsHandler>("Functools");
+```
+
+**Adding New Handlers**: See `specs/003-model-abstraction/quickstart.md` for detailed guide.
+
+### Project Structure
+
+```
+LocalAIAgent/
+├── src/
+│   ├── LocalAIAgent.Agent/      # Core agent logic & services
+│   │   ├── Services/
+│   │   │   ├── ChatAgentService.cs           # Agent Framework integration
+│   │   │   ├── ChatClientFactory.cs          # Multi-model client factory
+│   │   │   └── ToolDiscoveryService.cs       # Tool assembly scanning
+│   │   ├── Handlers/
+│   │   │   └── FunctoolsHandler.cs           # Functools format parser
+│   │   ├── Interfaces/
+│   │   │   ├── IToolInvocationHandler.cs     # Handler abstraction
+│   │   │   └── IPromptProvider.cs            # Prompt management
+│   │   └── Models/
+│   │       ├── ModelConfiguration.cs         # Model config schema
+│   │       └── ProviderType.cs               # Provider enum
+│   ├── LocalAIAgent.Web/        # Blazor UI
+│   ├── LocalAIAgent.OpenMeteo/  # Weather tools assembly
+│   │   └── Tools/                            # Geocoding, Weather, AirQuality
+│   ├── LocalAIAgent.Tools/      # Base tool infrastructure
+│   ├── LocalAIAgent.AppHost/    # Aspire orchestration
+│   └── LocalAIAgent.ServiceDefaults/
+├── tests/
+│   ├── LocalAIAgent.Agent.Tests/
+│   ├── LocalAIAgent.OpenMeteo.Tests/
+│   ├── LocalAIAgent.Web.Tests/
+│   └── LocalAIAgent.E2E.Tests/
+└── prompts/
+    └── weather-assistant.md                 # System prompt (file-based)
+```
 
 ---
 
@@ -96,8 +217,8 @@ dotnet dev-certs https --trust
 
 ```bash
 # Clone repository
-git clone https://github.com/dragoshont/phi4-weather-agent-dotnet.git
-cd phi4-weather-agent-dotnet
+git clone https://github.com/dragoshont/local-conversational-agent.git
+cd local-conversational-agent
 git checkout 001-mistral-weather-assistant
 
 # Ensure Docker Desktop is running before setup
@@ -119,7 +240,7 @@ chmod +x scripts/setup-linux.sh
 dotnet restore
 
 # Run application
-dotnet run --project src/Phi4WeatherAgent.AppHost
+dotnet run --project src/LocalAIAgent.AppHost
 ```
 
 **What the setup scripts do**:
@@ -134,19 +255,19 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
 **Before running the app**:
 
 1. **Verify Docker Desktop and Virtualization** (CRITICAL)
-   
+
    Docker must be running with virtualization enabled:
-   
+
    ```powershell
    # Check Docker is running
    docker ps
    # Should return container list (or empty), NOT an error
-   
+
    # Windows only: Verify virtualization enabled
    # Open Task Manager → Performance → CPU
    # Look for "Virtualization: Enabled"
    ```
-   
+
    **If virtualization is disabled**, see [Troubleshooting → Virtualization Support Not Detected](#3-virtualization-support-not-detected-windows)
 
 2. **Start Docker Desktop** - Wait until status shows "Running" (30-60 seconds)
@@ -158,7 +279,7 @@ dotnet run --project src/Phi4WeatherAgent.AppHost
    ```powershell
    foundry service start
    foundry service status  # Should show "running on http://..."
-   
+
    # Note the port number (e.g., 62859 or 63336)
    # Set environment variable if not using default port 62859:
    $env:FOUNDRY_PORT="63336"  # Use your actual port
@@ -248,20 +369,41 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
 
 ## Architecture
 
+### Overview
+
 ```
 ┌────────────── Aspire AppHost ────────────────┐
-│  Mistral-7B via Foundry Local or Ollama      │
-│         │                                       │
-│         ▼                                       │
+│                                                │
 │  Agent Backend (ASP.NET Core)                  │
-│  ├─ AgentService (Orchestration)               │
-│  ├─ MCP Tools (Geocoding, Weather, Allergen)  │
-│  └─ HTTP Clients (OpenMeteo APIs + Polly)     │
+│  ┌────────────────────────────────────┐       │
+│  │ Microsoft Agent Framework          │       │
+│  │  ├─ ChatClientAgent                │       │
+│  │  ├─ AgentThread (Conversation State)│     │
+│  │  └─ Tool Middleware Pipeline       │       │
+│  └────────────────────────────────────┘       │
 │         │                                       │
-│         ▼ SignalR                              │
-│  Blazor Server UI (Chat Interface)            │
-│  ├─ WeatherCard (Current + 7-day forecast)    │
-│  └─ AllergenCard (Pollen levels + severity)   │
+│         ├─ Configuration-Driven Models         │
+│         │  ├─ Phi-4-mini (Foundry/Ollama)      │
+│         │  ├─ Qwen 2.5 VL 3B (Ollama)          │
+│         │  └─ Cloud Models (OpenAI, Azure)     │
+│         │                                       │
+│         ├─ Tool Invocation Handlers            │
+│         │  ├─ FunctoolsHandler (Phi-4/Qwen)    │
+│         │  └─ Native Tool Calling (GPT-4o)     │
+│         │                                       │
+│         ├─ MCP Tools                            │
+│         │  ├─ GeocodingTool                     │
+│         │  ├─ WeatherTool                       │
+│         │  └─ AirQualityTool                    │
+│         │                                       │
+│         └─ HTTP Clients (OpenMeteo APIs)       │
+│                                                 │
+│         ▼ SignalR WebSocket                    │
+│  Blazor Server UI                              │
+│  ├─ Model Dropdown (Multi-model selection)    │
+│  ├─ Chat Interface                             │
+│  ├─ WeatherCard (7-day forecast)               │
+│  └─ AllergenCard (Pollen levels)               │
 └────────────────────────────────────────────────┘
          │
          ▼ HTTPS
@@ -273,13 +415,143 @@ See [quickstart.md](specs/001-phi4-weather-assistant/quickstart.md) for more nat
   └──────────────────────────┘
 ```
 
-**Tech Stack**:
+### Tech Stack
+
 - **.NET 10** with C# 14
-- **Microsoft.Extensions.AI** (Agent Framework 10.0.0-preview.1.25071.7)
-- **Aspire 13** (orchestration + observability)
-- **Blazor Server** (real-time chat UI via SignalR)
-- **Polly 8.5** (resilience: retry + circuit breaker)
-- **OpenMeteo APIs** (free, no keys required)
+- **Microsoft Agent Framework** (Microsoft.Agents.AI 1.0.0-preview.251001.1)
+- **Microsoft.Extensions.AI** (10.0.0-preview.1.25560.10) - Base chat client abstractions
+- **Aspire 13** (distributed application orchestration + observability)
+- **Blazor Server** (real-time UI with SignalR circuit)
+- **Polly 8.5** (resilience patterns: retry, circuit breaker, timeout)
+- **OpenMeteo APIs** (free weather data, no API keys required)
+
+### Agent Framework Architecture
+
+This application uses Microsoft's Agent Framework (`Microsoft.Agents.AI`) for production-grade AI agent orchestration:
+
+#### ChatClientAgent
+
+The core agent wrapper that provides:
+- **Automatic conversation management** via `AgentThread`
+- **Middleware pipeline** for pluggable tool invocation handlers
+- **Built-in telemetry** and observability
+- **Unified API** for streaming and non-streaming responses
+
+#### Tool Invocation Handlers
+
+Model-specific middleware components that parse custom tool calling formats:
+
+**FunctoolsHandler** (for Phi-4, Qwen, Mistral):
+```csharp
+// Input: Model generates functools[{"name": "get_weather", "arguments": {...}}]
+// Handler: Parses functools blocks, executes tools, injects results back
+// Output: Model continues with tool results in context
+```
+
+**Native Calling** (for GPT-4o, Claude, Gemini):
+```csharp
+// No handler applied - models use native tool calling protocol
+// Framework handles tool execution automatically
+```
+
+#### AgentThread State Management
+
+Replaces manual conversation history with framework-managed state:
+- **Automatic history tracking**: No manual message list management
+- **Thread lifecycle**: Create, use, dispose pattern
+- **Future-ready**: Built-in support for thread persistence and checkpointing
+
+### Configuration-Driven Model Selection
+
+Switch AI models without recompilation using `appsettings.json`:
+
+```json
+{
+  "AI": {
+    "DefaultModel": "phi-4-mini",
+    "Models": {
+      "phi-4-mini": {
+        "Name": "phi-4-mini",
+        "Provider": "Ollama",
+        "Endpoint": "http://localhost:11434",
+        "ToolInvocationStrategy": "Functools"
+      },
+      "qwen2.5-vl-3b": {
+        "Name": "qwen2.5-vl-3b",
+        "Provider": "Ollama",
+        "Endpoint": "http://localhost:11434",
+        "ToolInvocationStrategy": "Functools"
+      },
+      "gpt-4o": {
+        "Name": "gpt-4o",
+        "Provider": "AzureOpenAI",
+        "Endpoint": "https://YOUR_INSTANCE.openai.azure.com",
+        "ApiKey": "${AZURE_OPENAI_API_KEY}",
+        "ToolInvocationStrategy": null
+      }
+    }
+  }
+}
+```
+
+**Environment Variable Substitution**:
+```bash
+# API keys loaded from environment (not committed to source)
+export AZURE_OPENAI_API_KEY="your-key-here"
+```
+
+#### Model Selection UI Workflow
+
+The application provides an accessible model dropdown in the chat interface:
+
+**Initial State** (Before First Message):
+- ✅ Dropdown **enabled** showing all configured models
+- ✅ Default model pre-selected from `AI:DefaultModel`
+- ✅ Format: `Provider: ModelName (Local/Cloud)`
+  - Example: `Ollama: Phi-4 (Local)`
+  - Example: `AzureOpenAI: GPT-4 (Cloud)`
+- ✅ Help text: "Select model before sending first message"
+- ✅ Users can freely switch between models
+
+**After First Message**:
+- 🔒 Dropdown **locked/disabled** for conversation consistency
+- 🔒 Help text: "Model locked for this conversation"
+- 🔒 Model selection preserved for entire conversation thread
+
+**New Chat**:
+- ✅ Click "New Chat" button to reset conversation
+- ✅ Dropdown **re-enabled** for new model selection
+- ✅ Agent thread reset to empty state
+
+**Accessibility Features** (WCAG 2.1 AA):
+- ♿ `aria-label="Select AI model"` for screen readers
+- ♿ `aria-describedby` linking to help text
+- ♿ Keyboard navigation (Tab, Enter, Arrow keys)
+- ♿ Focus indicators visible on all interactive elements
+- ♿ Color contrast meets 4.5:1 text ratio
+
+**Configuration Best Practices**:
+- **Single Model**: Dropdown renders but has only one option (still accessible)
+- **Multiple Models**: Test each model configuration before production use
+- **Cloud Models**: Require valid API keys in environment variables
+- **Local Models**: Verify model downloaded via `ollama list` or `foundry cache list`
+
+**Troubleshooting**:
+- **Dropdown empty**: Check `AI:Models` array in `appsettings.json` is not empty
+- **Model not available**: Run `ollama pull <model-id>` or `foundry model download <model-id>`
+- **Configuration invalid**: Application validates at startup - check logs for errors
+- **Dropdown locked unexpectedly**: Use "New Chat" to reset conversation thread
+
+### Prompt Management
+
+System prompts loaded from markdown files in `prompts/` directory:
+
+```
+prompts/
+└── weather-assistant.md  # Default weather assistant persona
+```
+
+Update prompts without recompilation - changes take effect on application restart.
 
 ---
 
@@ -447,12 +719,12 @@ After enabling Hyper-V:
    ```powershell
    # Check if Docker Desktop is running
    docker ps
-   
+
    # If error "Cannot connect to Docker daemon":
    # 1. Start Docker Desktop from Start Menu/Applications
    # 2. Wait 30-60 seconds until system tray/menu bar shows "Running"
    # 3. Retry: docker ps
-   
+
    # Verify Docker is healthy
    Get-Process "Docker Desktop" | Select-Object Name, Id
    ```
@@ -468,12 +740,12 @@ After enabling Hyper-V:
    ```powershell
    # Ensure Docker Desktop installed
    winget list Docker.DockerDesktop
-   
+
    # If not installed
    winget install Docker.DockerDesktop
-   
+
    # Restart AppHost after Docker is running
-   dotnet run --project src/Phi4WeatherAgent.AppHost
+   dotnet run --project src/LocalAIAgent.AppHost
    ```
 
    **Note**: Per [Aspire 13 documentation](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/setup-tooling#container-runtime), Docker/Podman is a **required prerequisite** for DCP (Developer Control Plane) to function.
@@ -489,17 +761,17 @@ After enabling Hyper-V:
    ```powershell
    # Step 1: Quit Docker Desktop completely
    # Right-click Docker Desktop in system tray → Quit Docker Desktop
-   
+
    # Step 2: Enable hypervisor (run as Administrator)
    bcdedit /set hypervisorlaunchtype auto
-   
+
    # Step 3: Restart computer
    Restart-Computer
-   
+
    # Step 4: After restart, verify virtualization is enabled
    # Open Task Manager → Performance tab → CPU
    # Check that "Virtualization: Enabled" is shown
-   
+
    # Step 5: Start Docker Desktop
    ```
 
@@ -507,11 +779,11 @@ After enabling Hyper-V:
 
    ```powershell
    # Run as Administrator
-   
+
    # Disable and re-enable Hyper-V
    Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
    Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
-   
+
    # Restart computer
    Restart-Computer
    ```
@@ -532,12 +804,12 @@ After enabling Hyper-V:
    # Clean and recreate certificates
    dotnet dev-certs https --clean
    dotnet dev-certs https --trust
-   
+
    # IMPORTANT: Close all browser windows after trusting
    Stop-Process -Name "msedge","chrome","firefox" -Force -ErrorAction SilentlyContinue
-   
+
    # Restart AppHost
-   dotnet run --project src/Phi4WeatherAgent.AppHost
+   dotnet run --project src/LocalAIAgent.AppHost
    ```
 
 ### Foundry Local Issues
@@ -553,10 +825,10 @@ After enabling Hyper-V:
    ```powershell
    # Manual model download
    foundry model download phi-4-mini
-   
+
    # Verify download (should show phi-4-mini)
    foundry cache list
-   
+
    # Check service status
    foundry service status
    ```
@@ -570,10 +842,10 @@ After enabling Hyper-V:
    ```powershell
    # Start Foundry service
    foundry service start
-   
+
    # Verify it's running (should show "running on http://127.0.0.1:62859")
    foundry service status
-   
+
    # Test correct endpoint (note /v1 path)
    curl http://127.0.0.1:62859/v1/models
    ```
@@ -591,10 +863,10 @@ After enabling Hyper-V:
    ```powershell
    # Find and kill processes on conflicting ports
    Get-Process | Where-Object { $_.ProcessName -match "dotnet|Phi4Weather" } | Stop-Process -Force
-   
+
    # Or restart with HTTP profile (port 15000)
    $env:ASPIRE_ALLOW_UNSECURED_TRANSPORT="true"
-   dotnet run --project src/Phi4WeatherAgent.AppHost --launch-profile http
+   dotnet run --project src/LocalAIAgent.AppHost --launch-profile http
    ```
 
 2. **Missing .NET 10 SDK**
@@ -606,10 +878,10 @@ After enabling Hyper-V:
    ```powershell
    # Windows
    winget install Microsoft.DotNet.SDK.10
-   
+
    # macOS
    brew install dotnet@10
-   
+
    # Verify
    dotnet --version  # Should show 10.x.x
    ```
@@ -630,7 +902,7 @@ After enabling Hyper-V:
 
 2. **If no tools registered** (shows "Registered 0 tools"):
    - `ToolDiscoveryService` didn't find `[Tool]` attributes
-   - Check that `Phi4WeatherAgent.Tools` assembly is loaded
+   - Check that `LocalAIAgent.Tools` assembly is loaded
    - Verify `AddHostedService<ToolDiscoveryService>()` in `Program.cs`
 
 3. **If tools are registered but functools still shows**:
@@ -650,12 +922,12 @@ builder.Services.AddHostedService<ToolDiscoveryService>();
 builder.Services.AddChatClient(services =>
 {
     var baseClient = /* ... create base client ... */;
-    
+
     // CRITICAL: Wrap with FunctoolsChatClient decorator
     var parser = services.GetRequiredService<IFunctoolsParser>();
     var invoker = services.GetRequiredService<IToolInvoker>();
     var logger = services.GetRequiredService<ILogger<FunctoolsChatClient>>();
-    
+
     return new FunctoolsChatClient(baseClient, parser, invoker, logger);
 });
 
@@ -670,7 +942,7 @@ chatOptions = new ChatOptions(); // Empty, no Tools list
 
 ```powershell
 # Run integration test to verify functools work
-dotnet test tests/Phi4WeatherAgent.Agent.Tests --filter "FunctoolsChatClientIntegrationTests"
+dotnet test tests/LocalAIAgent.Agent.Tests --filter "FunctoolsChatClientIntegrationTests"
 
 # Check logs for tool execution
 # Should see: "FUNCTOOLS DETECTED! Count=1, Tools=GeocodeLocation"
@@ -684,22 +956,22 @@ For more troubleshooting, see [Aspire Troubleshooting Guide](https://learn.micro
 
 ```bash
 # Unit tests (xUnit)
-dotnet test tests/Phi4WeatherAgent.Agent.Tests
-dotnet test tests/Phi4WeatherAgent.Web.Tests
+dotnet test tests/LocalAIAgent.Agent.Tests
+dotnet test tests/LocalAIAgent.Web.Tests
 
 # E2E tests (Playwright) - requires web app running
 # Terminal 1: Start the web app
-dotnet run --project src/Phi4WeatherAgent.Web
+dotnet run --project src/LocalAIAgent.Web
 
 # Terminal 2: Run E2E smoke test
-cd tests/Phi4WeatherAgent.E2E.Tests
+cd tests/LocalAIAgent.E2E.Tests
 npm install
 npx playwright install --with-deps
 dotnet test --filter "FullyQualifiedName~FunctoolsSmokeTest"
 
 # CRITICAL: Smoke test validates functools are NOT shown in chat UI
 # This test would have caught the ChatOptionsBuilder configuration bug
-# See: tests/Phi4WeatherAgent.E2E.Tests/Smoke/FunctoolsSmokeTest.cs
+# See: tests/LocalAIAgent.E2E.Tests/Smoke/FunctoolsSmokeTest.cs
 
 # Accessibility testing (manual)
 # Use NVDA (Windows) or VoiceOver (macOS) to verify:
@@ -719,6 +991,230 @@ dotnet test --filter "FullyQualifiedName~FunctoolsSmokeTest"
 ## Troubleshooting
 
 ### Common Issues
+
+#### "Model configuration is invalid"
+
+**Symptoms**: Application fails to start with `OptionsValidationException`
+
+**Common causes**:
+
+1. **Invalid endpoint URL**:
+   ```json
+   "Endpoint": "localhost:11434"  // ❌ Missing http://
+   "Endpoint": "http://localhost:11434"  // ✓ Correct
+   ```
+
+2. **DefaultModel not in Models dictionary**:
+   ```json
+   "DefaultModel": "gpt-4o",  // ❌ Model not defined
+   "Models": {
+     "phi-4-mini": { ... }  // Only phi-4-mini exists
+   }
+   ```
+
+3. **Missing required fields**:
+   ```json
+   "Models": {
+     "phi-4-mini": {
+       "Name": "phi-4-mini",
+       "Provider": "Ollama"
+       // ❌ Missing required "Endpoint"
+     }
+   }
+   ```
+
+**Fix**: Check startup logs for detailed validation errors:
+```bash
+dotnet run --project src/LocalAIAgent.AppHost
+# Look for: "Configuration validation failed: ..."
+```
+
+#### "Model dropdown shows empty or single option"
+
+**Expected behavior**: Dropdown populates from `AI:Models` configuration section
+
+**Checklist**:
+1. Verify models defined in `appsettings.json` under `AI:Models`
+2. Check browser console (F12) for JavaScript errors
+3. Ensure model names are unique (dictionary keys)
+
+**Single model**: Dropdown still shows the one model (not hidden)
+
+#### "Model 'xyz' not found in configuration"
+
+**Symptoms**: Runtime error when trying to use a specific model
+
+**Cause**: Model name doesn't exist in `AI:Models` array
+
+**Fix**:
+```json
+{
+  "AI": {
+    "DefaultModel": "phi-4-mini",  // Must match Models[].Name
+    "Models": [
+      {
+        "Name": "phi-4-mini",  // ← This name
+        "Provider": "FoundryLocal",
+        "Endpoint": "http://localhost:5272",
+        "ModelId": "Phi-4-mini-instruct-generic-cpu"
+      }
+    ]
+  }
+}
+```
+
+#### "No tools registered" / Tool discovery failed
+
+**Symptoms**: Logs show "Registered 0 tools" or tools not invoked
+
+**Causes & Fixes**:
+
+1. **OpenMeteo assembly not loaded**:
+   ```bash
+   # Check ToolDiscoveryService logs for:
+   # "Scanning assembly: LocalAIAgent.OpenMeteo"
+
+   # If missing, verify project reference exists:
+   dotnet list src/LocalAIAgent.Agent/LocalAIAgent.Agent.csproj reference
+   # Should show: ../LocalAIAgent.OpenMeteo/LocalAIAgent.OpenMeteo.csproj
+   ```
+
+2. **[Tool] attributes missing**:
+   ```csharp
+   // ✓ Correct
+   [Tool("GeocodeLocation", Description = "...")]
+   public static async Task<string> GeocodeLocation(...)
+
+   // ❌ Won't be discovered
+   public static async Task<string> GeocodeLocation(...)
+   ```
+
+3. **Method signature incompatible**:
+   ```csharp
+   // ✓ Correct return types
+   Task<string>, ValueTask<string>, string
+
+   // ❌ Won't work
+   Task<int>, void, object
+   ```
+
+#### "Handler not applied" / Tools not invoked despite ToolInvocationStrategy
+
+**Symptoms**: ToolInvocationStrategy set but handler doesn't run
+
+**Checklist**:
+
+1. **Handler registered as keyed service**:
+   ```csharp
+   // In Program.cs
+   builder.Services.AddKeyedSingleton<IToolInvocationHandler, FunctoolsHandler>("Functools");
+   ```
+
+2. **Strategy name matches key (case-sensitive)**:
+   ```json
+   "ToolInvocationStrategy": "Functools"  // Must match "Functools" key exactly
+   ```
+
+3. **Check ChatClientFactory logs**:
+   ```bash
+   # Look for: "Applying handler 'Functools' to model 'qwen-vl-3b'"
+   # Or: "No handler registered for strategy 'Functools'"
+   ```
+
+#### Connection refused to local model endpoint
+
+**Symptoms**: `HttpRequestException: Connection refused` to localhost:11434 or localhost:5272
+
+**Fixes**:
+
+**For Ollama**:
+```bash
+# Start Ollama service
+ollama serve
+
+# Verify it's running
+curl http://localhost:11434/api/tags
+# Should return JSON with model list
+```
+
+**For Foundry Local**:
+```bash
+# Start Foundry service
+foundry service start
+
+# Check status
+foundry service status
+# Should show: "Service is running on http://localhost:5272"
+```
+
+**Check port conflicts**:
+```powershell
+# Windows
+netstat -ano | findstr "11434"
+netstat -ano | findstr "5272"
+
+# Linux/macOS
+lsof -i :11434
+lsof -i :5272
+```
+
+#### "Environment variable substitution not working"
+
+**Symptoms**: `${AZURE_OPENAI_API_KEY}` appears literally in logs/errors
+
+**Fix**: Environment variables must be set BEFORE launching application
+
+**Windows PowerShell**:
+```powershell
+$env:AZURE_OPENAI_API_KEY = "your-key-here"
+.\Start-AspireHost.ps1
+```
+
+**Linux/macOS**:
+```bash
+export AZURE_OPENAI_API_KEY="your-key-here"
+dotnet run --project src/LocalAIAgent.AppHost
+```
+
+**Verification**:
+```bash
+# Check if environment variable is set
+echo $env:AZURE_OPENAI_API_KEY  # PowerShell
+echo $AZURE_OPENAI_API_KEY      # Bash
+```
+
+#### "Functools handler not applied"
+
+**Symptoms**: Phi-4 or Qwen model generates `functools[...]` text but tools don't execute
+
+**Checklist**:
+1. Verify `ToolInvocationStrategy` is set to `"Functools"` (case-sensitive)
+2. Check handler registration logs at startup
+3. Ensure model entry matches exact configuration format
+
+**Correct configuration**:
+```json
+"phi-4-mini": {
+  "Name": "phi-4-mini",
+  "Provider": "Ollama",
+  "Endpoint": "http://localhost:11434",
+  "ToolInvocationStrategy": "Functools"  // Required for Phi-4/Qwen
+}
+```
+
+**Logs to check**:
+```
+info: LocalAIAgent.Agent.Services.ChatAgentFactory[0]
+      FunctoolsHandler registered for model: phi-4-mini
+```
+
+#### "Model dropdown locked after first message"
+
+**Expected behavior**: Model selection locks after sending first message to preserve conversation context
+
+**To switch models**: Click "New Chat" button (clears thread and re-enables dropdown)
+
+**Rationale**: Different models have different conversation formats - mixing them mid-conversation causes context corruption
 
 #### "Phi-4 model not found"
 
@@ -772,7 +1268,7 @@ dotnet aspire --version  # Should show 13.0.0-preview.1+
 
 ```bash
 # Check if web project is running
-dotnet run --project src/Phi4WeatherAgent.AppHost
+dotnet run --project src/LocalAIAgent.AppHost
 
 # Verify SignalR endpoint in browser console (F12):
 # Should show: ws://localhost:5000/_blazor?id=...
@@ -839,7 +1335,7 @@ curl http://localhost:5000/health  # Warms up DI container
 1. **Check model status**: Verify Phi-4 model loaded (foundry list or ollama list)
 2. **Verify API connectivity**: Test OpenMeteo APIs manually (`curl https://api.open-meteo.com/v1/forecast?latitude=47.6&longitude=-122.3`)
 3. **Inspect Aspire Dashboard**: View distributed traces, logs, metrics at <http://localhost:15888>
-4. **Restart AppHost**: Kill all processes, run `dotnet run --project src/Phi4WeatherAgent.AppHost`
+4. **Restart AppHost**: Kill all processes, run `dotnet run --project src/LocalAIAgent.AppHost`
 5. **Check logs**: Search for errors in console output or Aspire Dashboard logs tab
 
 ### Setup Script Verification

@@ -1,0 +1,164 @@
+@page "/"
+@using Microsoft.Agents.AI
+@using Microsoft.Extensions.AI
+@using LocalAIAgent.Agent.Services
+@inject ChatAgentService ChatAgentService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Chat</PageTitle>
+
+<ChatHeader OnNewChat="@ResetConversationAsync" />
+
+<ChatMessageList Messages="@messages" InProgressMessage="@currentResponseMessage">
+    <NoMessagesContent>
+        <div>Ask me about the weather! Try questions like:</div>
+        <ul>
+            <li>"What's the weather in Seattle?"</li>
+            <li>"Show me the forecast for New York"</li>
+            <li>"What are pollen levels in Austin?"</li>
+        </ul>
+    </NoMessagesContent>
+</ChatMessageList>
+
+<div class="chat-container" role="form" aria-label="Send message to weather assistant">
+    <ChatSuggestions OnSelected="@AddUserMessageAsync" @ref="@chatSuggestions" />
+    <ChatInput OnSend="@AddUserMessageAsync" @ref="@chatInput" />
+    <SurveyPrompt /> @* Remove this line to eliminate the template survey message *@
+</div>
+
+@code {
+    // T046-T047: Agent Framework state management with AgentThread
+    private AgentThread? _agentThread;
+    private readonly List<ChatMessage> messages = new();
+    private CancellationTokenSource? currentResponseCancellation;
+    private ChatMessage? currentResponseMessage;
+    private ChatInput? chatInput;
+    private ChatSuggestions? chatSuggestions;
+
+    protected override Task OnInitializedAsync()
+    {
+        Console.WriteLine("[Chat.razor] OnInitializedAsync START");
+
+        try
+        {
+            Console.WriteLine("[Chat.razor] About to call ChatAgentService.CreateThread()");
+
+            // T047: Create AgentThread for conversation state management
+            _agentThread = ChatAgentService.CreateThread();
+
+            Console.WriteLine($"[Chat.razor] AgentThread created: {(_agentThread != null ? "SUCCESS" : "NULL")}");
+
+            // Note: System prompt is now set in ChatClientAgent registration (Program.cs)
+            // No need to manually add it here - Agent Framework handles it
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Chat.razor] EXCEPTION in OnInitializedAsync: {ex.Message}");
+            Console.Error.WriteLine($"[Chat.razor] Stack trace: {ex.StackTrace}");
+            throw;
+        }
+
+        Console.WriteLine("[Chat.razor] OnInitializedAsync COMPLETE");
+        return Task.CompletedTask;
+    }
+
+    private async Task AddUserMessageAsync(ChatMessage userMessage)
+    {
+        CancelAnyCurrentResponse();
+
+        // Add the user message to the local messages list for UI display
+        messages.Add(userMessage);
+        chatSuggestions?.Clear();
+        await chatInput!.FocusAsync();
+
+        // T046: Stream and display a new response using ChatAgentService with AgentThread
+        var responseText = new TextContent("");
+        currentResponseMessage = new ChatMessage(ChatRole.Assistant, [responseText]);
+        currentResponseCancellation = new();
+
+        Console.WriteLine($"[Chat] Starting Agent Framework streaming request");
+        var updateCount = 0;
+
+        try
+        {
+            await foreach (var update in ChatAgentService.RunStreamingAsync(
+                userMessage.Text,
+                _agentThread!,
+                currentResponseCancellation.Token))
+            {
+                updateCount++;
+                Console.WriteLine($"[Chat] Update #{updateCount}: Text='{update.Text}' (length={update.Text?.Length ?? 0})");
+
+                // Add non-text content (tool calls, function calls, etc.) from AgentRunResponseUpdate
+                if (update.Contents != null)
+                {
+                    foreach (var content in update.Contents)
+                    {
+                        // Skip text content as we're already accumulating it
+                        if (content is not TextContent)
+                        {
+                            // Add function calls, images, or other non-text content to display
+                            var contentMessage = new ChatMessage(ChatRole.Assistant, [content]);
+                            messages.Add(contentMessage);
+                        }
+                    }
+                }
+
+                // Update response text
+                responseText.Text += update.Text;
+
+                ChatMessageItem.NotifyChanged(currentResponseMessage);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine($"[Chat] Streaming cancelled by user");
+        }
+
+        Console.WriteLine($"[Chat] Streaming complete. Total updates: {updateCount}, Final text length: {responseText.Text.Length}");
+
+        // Store the final response in the conversation
+        messages.Add(currentResponseMessage!);
+        currentResponseMessage = null;
+        chatSuggestions?.Update(messages);
+    }
+
+    private void CancelAnyCurrentResponse()
+    {
+        // If a response was cancelled while streaming, include it in the conversation so it's not lost
+        if (currentResponseMessage is not null)
+        {
+            messages.Add(currentResponseMessage);
+        }
+
+        currentResponseCancellation?.Cancel();
+        currentResponseMessage = null;
+    }
+
+    private async Task ResetConversationAsync()
+    {
+        CancelAnyCurrentResponse();
+        messages.Clear();
+
+        // T047: Reset AgentThread to clear conversation history
+        if (_agentThread is not null)
+        {
+            ChatAgentService.ResetThread(_agentThread);
+        }
+        else
+        {
+            _agentThread = ChatAgentService.CreateThread();
+        }
+
+        chatSuggestions?.Clear();
+        await chatInput!.FocusAsync();
+    }
+
+    public void Dispose()
+    {
+        currentResponseCancellation?.Cancel();
+        // AgentThread is lightweight and doesn't need explicit disposal
+    }
+}

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.AI;
 
-namespace Phi4WeatherAgent.Agent.Adapters;
+namespace LocalAIAgent.Agent.Adapters;
 
 /// <summary>
 /// Builds ChatOptions with tools populated for Foundry native function calling.

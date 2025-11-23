@@ -313,15 +313,21 @@ Prompt loading strategies:
 public interface IPromptProvider
 {
     /// <summary>
-    /// Loads the system prompt for the current model.
+    /// Loads the system prompt for the current model asynchronously.
     /// </summary>
-    /// <returns>System prompt text (Markdown format)</returns>
-    string GetSystemPrompt();
+    /// <param name="promptName">Optional prompt name for multi-prompt scenarios</param>
+    /// <returns>System prompt text (Markdown format, UTF-8 encoded)</returns>
+    Task<string> GetSystemPromptAsync(string? promptName = null);
 
     /// <summary>
     /// Gets the tool invocation strategy for the current model.
     /// </summary>
-    string? ToolInvocationStrategy { get; }
+    string? ToolInvocationStrategy { get; };
+
+    /// <summary>
+    /// Indicates whether the model supports native tool calling.
+    /// </summary>
+    bool SupportsNativeTools { get; };
 }
 ```
 
@@ -333,7 +339,7 @@ public class FileSystemPromptProvider : IPromptProvider
     private readonly IConfiguration _configuration;
     private readonly ILogger<FileSystemPromptProvider> _logger;
 
-    public string GetSystemPrompt()
+    public async Task<string> GetSystemPromptAsync(string? promptName = null)
     {
         var promptFile = _configuration["AI:Models:{currentModel}:SystemPromptFile"];
         var promptPath = Path.Combine(AppContext.BaseDirectory, promptFile);
@@ -344,11 +350,14 @@ public class FileSystemPromptProvider : IPromptProvider
             throw new FileNotFoundException($"Prompt file not found: {promptPath}");
         }
 
-        return File.ReadAllText(promptPath);
+        return await File.ReadAllTextAsync(promptPath, System.Text.Encoding.UTF8);
     }
 
     public string? ToolInvocationStrategy =>
         _configuration["AI:Models:{currentModel}:ToolInvocationStrategy"];
+
+    public bool SupportsNativeTools =>
+        string.IsNullOrEmpty(ToolInvocationStrategy);
 }
 ```
 
@@ -360,6 +369,12 @@ prompts/
 ├── code-assistant.md          # Future use case (code generation)
 └── data-analyst.md            # Future use case (data analysis)
 ```
+
+**File Format Requirements**:
+- **Encoding**: UTF-8 (no BOM)
+- **Naming**: kebab-case (e.g., `weather-assistant.md`, not `WeatherAssistant.md`)
+- **Size Limit**: Maximum 100KB per file (enforced at load time)
+- **Extension**: `.md` (Markdown format)
 
 **Prompt Format** (Markdown):
 

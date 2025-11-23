@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# Windows Setup Script for Phi-4 Weather Agent
-# Checks and installs .NET 10 SDK, Foundry Local, and Phi-4 model
+# Windows Setup Script for Local AI Agent
+# Checks and installs .NET 10 SDK, Foundry Local, and AI models
 
-Write-Host "=== Phi-4 Weather Agent - Windows Setup ===" -ForegroundColor Cyan
+Write-Host "=== Local AI Agent - Windows Setup ===" -ForegroundColor Cyan
 Write-Host "This script is idempotent - safe to run multiple times" -ForegroundColor Gray
 
 # Check .NET 10 SDK
@@ -45,9 +45,9 @@ if ($phi4Cached) {
     Write-Host "Note: Using hardware-optimized variant (CPU/GPU/NPU auto-detection)" -ForegroundColor Gray
     Write-Host "Please wait... (foundry will show download progress)" -ForegroundColor Gray
     Write-Host ""
-    
+
     foundry model download phi-4-mini
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Phi-4 Mini model downloaded successfully" -ForegroundColor Green
     } else {
@@ -57,9 +57,45 @@ if ($phi4Cached) {
     }
 }
 
+# Note: Qwen 2.5 VL 3B requires Ollama (Linux-only in current configuration)
+# Windows users can use Phi-4 Mini via Foundry Local
+Write-Host "`nNote: Qwen 2.5 VL 3B model available via Ollama on Linux" -ForegroundColor Cyan
+Write-Host "Windows users: Phi-4 Mini via Foundry Local is recommended" -ForegroundColor Gray
+
+# Check if Ollama is installed for Qwen model (alternative to Foundry)
+Write-Host "`nChecking Ollama for Qwen model support..." -ForegroundColor Yellow
+if (Get-Command ollama -ErrorAction SilentlyContinue) {
+    Write-Host "✓ Ollama found" -ForegroundColor Green
+
+    # Check if Qwen 2.5-VL model exists
+    $qwenCached = ollama list 2>$null | Select-String "qwen2.5-vl:3b-instruct"
+    if ($qwenCached) {
+        Write-Host "✓ Qwen 2.5-VL 3B model found" -ForegroundColor Green
+    } else {
+        Write-Host "Downloading Qwen 2.5-VL 3B model (~2GB)..." -ForegroundColor Yellow
+        Write-Host "This may take 2-5 minutes depending on connection speed" -ForegroundColor Cyan
+        Write-Host "Note: Qwen supports vision capabilities and alternative model selection" -ForegroundColor Gray
+
+        ollama pull qwen2.5-vl:3b-instruct
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Qwen 2.5-VL model downloaded successfully" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Qwen model download failed (optional - Phi-4 will work)" -ForegroundColor Yellow
+            Write-Host "  Retry later: ollama pull qwen2.5-vl:3b-instruct" -ForegroundColor Gray
+        }
+    }
+} else {
+    Write-Host "ℹ Ollama not installed (optional - only needed for Qwen model)" -ForegroundColor Cyan
+    Write-Host "  Install: winget install Ollama.Ollama" -ForegroundColor Gray
+}
+
 Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
 Write-Host "✓ .NET 10 SDK: $dotnetVersion" -ForegroundColor Green
 Write-Host "✓ Foundry Local: Installed" -ForegroundColor Green
 Write-Host "✓ Phi-4 Mini model: Ready" -ForegroundColor Green
-Write-Host "`nYou can now run: dotnet run --project src/Phi4WeatherAgent.AppHost" -ForegroundColor Green
+if (Get-Command ollama -ErrorAction SilentlyContinue) {
+    Write-Host "✓ Qwen 2.5-VL model: Ready (optional)" -ForegroundColor Green
+}
+Write-Host "`nYou can now run: dotnet run --project src/LocalAIAgent.AppHost" -ForegroundColor Green
 Write-Host "Aspire Dashboard will be available at: http://localhost:15888" -ForegroundColor Cyan

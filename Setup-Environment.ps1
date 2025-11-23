@@ -1,13 +1,13 @@
 #!/usr/bin/env pwsh
 #Requires -RunAsAdministrator
-# Complete Setup Script for Phi-4 Weather Agent on Windows
+# Complete Setup Script for Local AI Agent on Windows
 # This script checks, installs, and configures all prerequisites
 # Safe to run multiple times (idempotent)
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Phi-4 Weather Agent - Complete Setup" -ForegroundColor Cyan
+Write-Host "  Local AI Agent - Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -21,14 +21,14 @@ Write-Host "[1/6] Checking Hyper-V Virtualization..." -ForegroundColor Yellow
 
 try {
     $hyperV = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction Stop
-    
+
     if ($hyperV.State -eq "Enabled") {
         Write-Host "  OK Hyper-V is enabled" -ForegroundColor Green
     } else {
         Write-Host "  WARNING Hyper-V is not enabled (required for Docker and Aspire)" -ForegroundColor Yellow
         Write-Host ""
         $response = Read-Host "  Enable Hyper-V now? This requires a restart (Y/N)"
-        
+
         if ($response -eq "Y" -or $response -eq "y") {
             Write-Host "  Enabling Hyper-V..." -ForegroundColor Yellow
             Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart | Out-Null
@@ -40,7 +40,7 @@ try {
             $allGood = $false
         }
     }
-    
+
     # Check CPU virtualization support
     $cpu = Get-CimInstance -ClassName Win32_Processor
     if ($cpu.VirtualizationFirmwareEnabled) {
@@ -67,7 +67,7 @@ if ($dotnetVersion -like "10.*") {
 } else {
     Write-Host "  MISSING .NET 10 SDK not found" -ForegroundColor Red
     Write-Host "  Installing via winget..." -ForegroundColor Yellow
-    
+
     try {
         winget install Microsoft.DotNet.SDK.10 --accept-source-agreements --accept-package-agreements --silent
         if ($LASTEXITCODE -eq 0) {
@@ -101,7 +101,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 } else {
     Write-Host "  MISSING Docker Desktop not found" -ForegroundColor Red
     Write-Host "  Installing via winget (this may take 5-10 minutes)..." -ForegroundColor Yellow
-    
+
     try {
         winget install Docker.DockerDesktop --accept-source-agreements --accept-package-agreements --silent
         if ($LASTEXITCODE -eq 0) {
@@ -131,7 +131,7 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
 } else {
     Write-Host "  MISSING Foundry Local not found" -ForegroundColor Red
     Write-Host "  Installing via winget..." -ForegroundColor Yellow
-    
+
     try {
         winget install Microsoft.FoundryLocal --accept-source-agreements --accept-package-agreements --silent
         if ($LASTEXITCODE -eq 0) {
@@ -162,8 +162,8 @@ if (Get-Command foundry -ErrorAction SilentlyContinue) {
         Write-Host "  ⚠️ MISSING Phi-4-mini model not downloaded" -ForegroundColor Yellow
         Write-Host "  Downloading (~3.8GB, optimized ONNX format)..." -ForegroundColor Yellow
         Write-Host "  This may take 3-8 minutes depending on connection speed" -ForegroundColor Gray
-        Write-Host "" 
-        
+        Write-Host ""
+
         try {
             foundry model download phi-4-mini
             if ($LASTEXITCODE -eq 0) {
@@ -194,7 +194,7 @@ if ($certOutput -match "valid certificate found" -or $certOutput -match "A valid
 } else {
     Write-Host "  WARNING Certificate not trusted" -ForegroundColor Yellow
     Write-Host "  Trusting certificate..." -ForegroundColor Yellow
-    
+
     try {
         dotnet dev-certs https --clean | Out-Null
         dotnet dev-certs https --trust

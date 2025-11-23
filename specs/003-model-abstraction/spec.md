@@ -9,7 +9,7 @@
 
 ### Session 2025-11-20
 
-- Q: What should the generic project naming convention be? → A: `LocalConversationalAgent.*` (emphasizes local-first architecture + conversational interface, distinguishes from cloud-based agents)
+- Q: What should the generic project naming convention be? → A: `LocalAIAgent.*` (emphasizes local-first architecture + AI agent capabilities, distinguishes from cloud-based agents)
 - Q: Should prompts be stored in configuration files or separate files per model? → A: Markdown files per use case in `prompts/` directory (industry standard: single prompt per use case, model behavior controlled by ToolInvocationStrategy in config, NOT separate model-instruction files)
 - Q: Should we migrate to Microsoft Agent Framework? → A: **Yes** - Migrate from `Microsoft.Extensions.AI` to `Microsoft.Agents.AI` (official successor to Semantic Kernel and AutoGen, recommended in technical research, provides production-ready multi-agent orchestration)
 
@@ -28,7 +28,7 @@ A developer wants to swap between local models (Phi-4 Mini, Qwen 2.5 VL 3B) or c
 1. **Given** application is running with Phi-4 Mini (local, default), **When** developer changes configuration to `"DefaultModel": "qwen2.5-vl-3b"`, **Then** application switches to Qwen model without code changes
 2. **Given** application is configured for local model, **When** developer adds cloud model configuration with API key, **Then** system can use cloud provider's native function calling
 3. **Given** application is running, **When** model configuration is switched, **Then** system prompt automatically adapts and appropriate `IToolInvocationHandler` is applied (or none if native tool support)
-4. **Given** developer deploys to production, **When** they specify different model in environment variables, **Then** no recompilation is needed
+4. **Given** developer deploys to production, **When** they specify different model in environment variables, **Then** no recompilation/rebuild is needed (application restart required to reload configuration)
 
 ---
 
@@ -69,7 +69,7 @@ The system supports pluggable tool invocation handlers via `IToolInvocationHandl
 
 ### User Story 4 - Generic Project Naming (Priority: P3)
 
-Projects are renamed to be domain-agnostic (not tied to "weather" or specific tools) so the architecture can be reused for any agent application (e.g., code assistant, data analyst, etc.).
+Projects are renamed to be domain-agnostic (not tied to "weather" or specific tools) so the AI agent architecture can be reused for any application (e.g., code assistant, data analyst, etc.).
 
 **Why this priority**: Enables template/framework reuse - developers can clone this architecture for non-weather agents without misleading project names.
 
@@ -77,8 +77,8 @@ Projects are renamed to be domain-agnostic (not tied to "weather" or specific to
 
 **Acceptance Scenarios**:
 
-1. **Given** current projects named `Phi4WeatherAgent.*`, **When** renamed, **Then** new names are `LocalConversationalAgent.*` (emphasizes local-first + conversational nature)
-2. **Given** namespaces reference weather, **When** refactored, **Then** namespaces reflect generic agent concepts (e.g., `LocalConversationalAgent.Tools` not `WeatherAgent.Tools`)
+1. **Given** projects were named `Phi4WeatherAgent.*`, **When** renamed to `LocalAIAgent.*`, **Then** all references updated (emphasizes local-first + AI agent capabilities)
+2. **Given** namespaces previously referenced weather, **When** refactored, **Then** namespaces now reflect generic agent concepts (e.g., `LocalAIAgent.Tools` not `WeatherAgent.Tools`)
 3. **Given** developer clones project, **When** they want to build non-weather agent, **Then** project names don't imply weather-only usage
 4. **Given** tools are defined, **When** projects are renamed, **Then** tool definitions remain separate from project structure
 
@@ -113,20 +113,20 @@ A user can select which AI model to use from a dropdown in the chat UI before st
 
 ### User Story 6 - Dedicated OpenMeteo Assembly (Priority: P3)
 
-Weather-related tools are extracted to a dedicated assembly `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from the generic agent framework, enabling reuse for non-weather agents.
+Weather-related tools are extracted to a dedicated assembly `LocalAIAgent.OpenMeteo` to separate domain-specific API integrations from the generic agent framework, enabling reuse for non-weather agents.
 
 **Why this priority**: Architectural clarity and reusability - separating weather domain logic from core agent framework makes the architecture easier to clone for other domains (code assistant, data analyst) without carrying weather-specific dependencies.
 
-**Independent Test**: Can be tested by verifying weather tools (GeocodingTools, WeatherTools, AirQualityTools) exist in separate `LocalConversationalAgent.OpenMeteo` assembly and are referenced as external dependency by Agent project.
+**Independent Test**: Can be tested by verifying weather tools (GeocodingTools, WeatherTools, AirQualityTools) exist in separate `LocalAIAgent.OpenMeteo` assembly and are referenced as external dependency by Agent project.
 
 **Acceptance Scenarios**:
 
-1. **Given** current weather tools in `LocalConversationalAgent.Tools`, **When** extracted to new assembly, **Then** new `LocalConversationalAgent.OpenMeteo` project contains GeocodingTools, WeatherTools, AirQualityTools
+1. **Given** current weather tools in `LocalAIAgent.Tools`, **When** extracted to new assembly, **Then** new `LocalAIAgent.OpenMeteo` project contains GeocodingTools, WeatherTools, AirQualityTools
 2. **Given** OpenMeteo assembly created, **When** Agent project references it, **Then** tools remain discoverable and functional via Agent Framework tool registration
 3. **Given** developer wants to build non-weather agent, **When** they clone repository, **Then** they can remove OpenMeteo assembly reference without affecting core agent framework
 4. **Given** OpenMeteo assembly wraps openmeteo_sdk, **When** tools make API calls, **Then** SDK types remain internal to assembly with no leakage to Agent or other projects (except unit tests)
 5. **Given** OpenMeteo assembly contains openmeteo_sdk reference, **When** consumed by Agent project, **Then** only tool method signatures are visible (no SDK entity types exposed in public API)
-6. **Given** solution structure, **When** viewed, **Then** clear separation between generic agent framework (`LocalConversationalAgent.Agent`, `.Web`, `.Tools`) and domain-specific implementation (`LocalConversationalAgent.OpenMeteo`)
+6. **Given** solution structure, **When** viewed, **Then** clear separation between generic agent framework (`LocalAIAgent.Agent`, `.Web`, `.Tools`) and domain-specific implementation (`LocalAIAgent.OpenMeteo`)
 
 ---
 
@@ -152,17 +152,17 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support local models (Phi-4 Mini via Foundry/Ollama as default, Qwen 2.5 VL 3B via Ollama) and cloud providers (Azure OpenAI, OpenAI, Google Gemini) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI`)
+- **FR-001**: System MUST support local models (Phi-4 Mini via Foundry/Ollama as default, Qwen 2.5 VL 3B via Ollama) and cloud providers (Azure OpenAI, OpenAI, Google Gemini) via configuration without code changes using Microsoft Agent Framework (`Microsoft.Agents.AI` version 1.0.0-preview.251001.1 or later, per constitution Section III permitted packages)
 - **FR-002**: System MUST provide model-specific prompt management through provider pattern
 - **FR-003**: System MUST support pluggable tool invocation handlers via `IToolInvocationHandler` interface, allowing models with custom tool formats (e.g., functools) to define their own parsing and execution logic. Handler selection controlled by `ToolInvocationStrategy` configuration property (e.g., "Functools", "ReActJSON", or null for native tool calling). Handlers conditionally applied via Agent Framework middleware only when `ToolInvocationStrategy` is non-null/non-empty, enabling native tool models to bypass custom parsing overhead.
 - **FR-004**: System MUST allow prompt customization per model type through injectable providers
 - **FR-005**: System MUST fail fast at startup with clear error if configured model is not supported
-- **FR-006**: System MUST expose model capabilities (native tools vs custom format) through provider interface
+- **FR-006**: System MUST expose model capabilities (native tools vs custom format) through `IPromptProvider.SupportsNativeTools` property (true when `ToolInvocationStrategy` is null/empty, false when handler specified)
 - **FR-007**: Configuration MUST allow specifying default model, endpoint, and optional API key via appsettings.json or environment variables (API key required for cloud providers, not needed for local models)
 - **FR-008**: Project names MUST be domain-agnostic (not reference "weather" or specific tools)
-- **FR-009**: Namespaces MUST be refactored to `LocalConversationalAgent.*` naming convention (reflects local-first architecture + conversational interface)
+- **FR-009**: Namespaces MUST be refactored to `LocalAIAgent.*` naming convention (reflects local-first architecture + AI agent capabilities)
 - **FR-010**: System MUST maintain backward compatibility with existing tool definitions during rename
-- **FR-011**: System prompts MUST be stored as Markdown files in `prompts/` directory, one file per use case (e.g., `weather-assistant.md`), referenced by configuration, with model-specific behavior controlled by ToolInvocationStrategy
+- **FR-011**: System prompts MUST be stored as Markdown files in `prompts/` directory using UTF-8 encoding, kebab-case naming convention (e.g., `weather-assistant.md`), max 100KB per file, one file per use case, referenced by configuration, with model-specific behavior controlled by ToolInvocationStrategy
 - **FR-012**: Chat UI MUST display model selection dropdown before first message, pre-populated with all configured models from `AI:Models` section
 - **FR-013**: Model dropdown MUST show each option in format: `Provider: model-name (endpoint-type)` where endpoint-type is "Local" or "Cloud"
 - **FR-014**: Model dropdown MUST be disabled (locked) after user sends first message in chat session to prevent mid-conversation model switching
@@ -170,13 +170,22 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **FR-016**: Bootstrap script MUST support downloading and configuring both Phi-4 Mini and Qwen 2.5 VL 3B models via Ollama/Foundry
 - **FR-017**: Start script MUST validate that configured default model is available before starting application
 - **FR-018**: README MUST document all supported models, configuration structure, and model selection UI workflow
-- **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalConversationalAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework. SDK entities from `openmeteo_sdk` MUST remain internal to the assembly with no types exposed in public API surface (encapsulation verified via unit tests only)
+- **FR-019**: Weather-related tools (GeocodingTools, WeatherTools, AirQualityTools) MUST be implemented in a dedicated assembly named `LocalAIAgent.OpenMeteo` to separate domain-specific API integrations from generic agent framework. SDK entities from `openmeteo_sdk` MUST remain internal using: (1) `internal` modifier on SDK wrapper classes, (2) Tool methods return only primitives (string, int, double) or custom DTOs (no SDK types), (3) Encapsulation verified via T093 automated API surface test using Roslyn-based analyzer to detect public SDK type exposure
 - **FR-020**: Configuration validation MUST implement comprehensive error handling: (1) Handler registration failures fail fast with clear message listing available handlers (T018), (2) Environment variables take precedence over appsettings.json with info logging (T016), (3) API keys support `${ENV_VAR_NAME}` substitution with security warnings for plain-text keys (T015), (4) Prompt file path validation fails fast showing attempted path and working directory (T026-T027), (5) Start scripts validate model availability before launch (T095-T098), (6) SDK dependency resolution failures show required version and resolution steps (T099-T100), (7) JSON Schema provided for IDE validation (T012)
-- **FR-021**: Model dropdown MUST meet WCAG 2.1 AA accessibility: (1) Full keyboard navigation (Tab, Enter, Arrow keys, Escape), (2) ARIA labels (`aria-label`, `aria-describedby`) for screen readers, (3) Screen reader announces all states including disabled state explanation, (4) Visible focus indicator with 3:1 contrast ratio minimum, (5) Disabled state uses multiple visual cues (color + icon) for color blindness support, (6) Error states use `role="alert"` for screen reader announcement
+- **FR-021**: Model dropdown MUST meet WCAG 2.1 AA accessibility: (1) Full keyboard navigation (Tab, Enter, Arrow keys, Escape), (2) ARIA labels (`aria-label`, `aria-describedby`) for screen readers, (3) Screen reader announces all states including disabled state explanation, (4) Visible focus indicator with 3:1 contrast ratio minimum, (5) Dropdown option text contrast ≥4.5:1 against background (WCAG 2.1 AA normal text requirement), (6) Disabled state uses multiple visual cues (color + icon) for color blindness support, (7) Error states use `role="alert"` for screen reader announcement
 
 ### Key Entities
 
-- **PromptProvider**: Encapsulates system prompts (loaded from Markdown files) and model metadata (name, ToolInvocationStrategy)
+- **IPromptProvider**: Interface for loading system prompts and exposing model metadata. Interface signature:
+  ```csharp
+  public interface IPromptProvider
+  {
+      Task<string> GetSystemPromptAsync(string? promptName = null);
+      string? ToolInvocationStrategy { get; }
+      bool SupportsNativeTools { get; }
+  }
+  ```
+  Implementations load prompts from Markdown files (UTF-8 encoding, kebab-case naming like `weather-assistant.md`, max 100KB per file). `SupportsNativeTools` property derived from `ToolInvocationStrategy` (true when null/empty, false otherwise).
 - **ModelConfiguration**: Configuration object containing:
   - `DefaultModel`: Model identifier (e.g., "phi-4-mini", "qwen2.5-vl-3b", "gpt-4o")
   - `Provider`: Provider type (Foundry, Ollama, AzureOpenAI, OpenAI, GoogleGemini)
@@ -185,8 +194,18 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
   - `ToolInvocationStrategy`: String or null (e.g., "Functools", "ReActJSON", null for native). Maps to `IToolInvocationHandler` implementation. Optional - omit for models with native tool support.
   - `SystemPromptFile`: Path to markdown prompt file
 - **ChatClientAgent**: Agent Framework's agent abstraction, conditionally includes functools middleware based on ToolInvocationStrategy
-- **IToolInvocationHandler**: Interface for model-specific tool invocation logic, with implementations like `FunctoolsHandler`, `ReActJSONHandler`, etc. Allows adding new handlers without modifying core framework.
-- **ToolInvocationStrategy**: Configuration property (string) specifying which handler to use (e.g., "Native", "Functools", "ReActJSON"). Maps to `IToolInvocationHandler` implementation. Optional - null/empty for models with native tool calling.
+- **IToolInvocationHandler**: Interface for model-specific tool invocation logic. Interface signature:
+  ```csharp
+  public interface IToolInvocationHandler
+  {
+      Task<AgentRunResponse> InvokeAsync(
+          AgentInvokeContext context,
+          AgentMiddlewareDelegate next
+      );
+  }
+  ```
+  Implementations include `FunctoolsHandler`, `ReActJSONHandler`, etc. Allows adding new handlers without modifying core framework. Registered via keyed DI services (e.g., `services.AddKeyedSingleton<IToolInvocationHandler, FunctoolsHandler>("Functools")`).
+- **ToolInvocationStrategy**: Configuration property (string) specifying which handler to use (e.g., "Functools", "ReActJSON"). Maps to `IToolInvocationHandler` implementation via keyed service lookup. Optional - null/empty for models with native tool calling.
 
 ## Success Criteria *(mandatory)*
 
@@ -202,7 +221,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **SC-008**: Model selection dropdown displays provider, model name, and endpoint type clearly (verified by UI inspection)
 - **SC-009**: Bootstrap script successfully downloads both Phi-4 Mini and Qwen 2.5 VL 3B models (verified by `ollama list` or Foundry status)
 - **SC-010**: Start script validates model availability before launch (fails fast with clear error if model missing)
-- **SC-011**: Weather tools exist in dedicated `LocalConversationalAgent.OpenMeteo` assembly with complete SDK encapsulation - no `openmeteo_sdk` types exposed in public API, only tool method signatures visible to Agent project (verified by API surface inspection and unit tests)
+- **SC-011**: Weather tools exist in dedicated `LocalAIAgent.OpenMeteo` assembly with complete SDK encapsulation - no `openmeteo_sdk` types exposed in public API, only tool method signatures visible to Agent project (verified via T093 Roslyn-based analyzer test that detects public SDK type exposure or manual ILSpy inspection)
 - **SC-012**: Configuration validation covers all error scenarios with fail-fast behavior and actionable messages: missing handler registration detected at startup, invalid `DefaultModel` reference lists available models, missing prompt files show attempted path, API key security warnings logged, environment variable precedence applied correctly, start script validates model availability
 - **SC-013**: Accessibility compliance verified: axe DevTools reports zero violations, keyboard-only navigation passes, NVDA/JAWS screen readers announce states correctly, focus indicator meets 3:1 contrast ratio, disabled state uses multiple visual cues (color + icon)
 
@@ -218,8 +237,8 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **Creating prompt storage structure** (`prompts/` directory with Markdown files per use case)
 - Configuration-driven model selection via appsettings.json with ToolInvocationStrategy enum
 - Conditional application of functools middleware based on ToolInvocationStrategy
-- Renaming projects from `Phi4WeatherAgent.*` to `LocalConversationalAgent.*`
-- Refactoring namespaces to be domain-agnostic (emphasizes local-first + conversational)
+- Renaming projects from `Phi4WeatherAgent.*` to `LocalAIAgent.*`
+- Refactoring namespaces to be domain-agnostic (emphasizes local-first + AI agent capabilities)
 - Updating solution file, launch profiles, and Docker configurations
 - Updating documentation and README to reflect Agent Framework architecture
 - **Adding model selection dropdown to Chat UI** with format `Provider: model-name (endpoint-type)`
@@ -227,7 +246,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - **Updating bootstrap scripts** to download and configure Phi-4 Mini and Qwen 2.5 VL 3B models
 - **Updating start scripts** to validate model availability before application launch
 - **Updating README** with comprehensive model configuration documentation, UI workflow, and troubleshooting guide
-- **Extracting weather tools to dedicated assembly** `LocalConversationalAgent.OpenMeteo` containing GeocodingTools, WeatherTools, AirQualityTools, with `openmeteo_sdk` fully encapsulated (no SDK types in public API surface)
+- **Extracting weather tools to dedicated assembly** `LocalAIAgent.OpenMeteo` containing GeocodingTools, WeatherTools, AirQualityTools, with `openmeteo_sdk` fully encapsulated (no SDK types in public API surface). Existing weather tool tests must be migrated from Agent.Tests to OpenMeteo.Tests to maintain test coverage.
 
 ### Out of Scope
 
@@ -254,7 +273,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 ### External Dependencies
 
 - **Microsoft.Agents.AI** (public preview) - Official successor to Semantic Kernel and AutoGen, provides unified agent framework with ChatClientAgent, middleware system, thread-based state management, and multi-agent orchestration
-- **openmeteo_sdk** v1.23.0 (NuGet) - Official OpenMeteo SDK for weather API integration, encapsulated within `LocalConversationalAgent.OpenMeteo` assembly (SDK types not exposed to other projects)
+- **openmeteo_sdk** v1.23.0 (NuGet) - Official OpenMeteo SDK for weather API integration, encapsulated within `LocalAIAgent.OpenMeteo` assembly (SDK types not exposed to other projects)
 - **Foundry Local** for Phi-4 Mini hosting (Windows/macOS) - default local model
 - **Ollama** for Qwen 2.5 VL 3B hosting (cross-platform: Windows, Linux, macOS)
   - Requires downloading model: `ollama pull qwen2.5-vl:3b-instruct`
@@ -271,7 +290,7 @@ Weather-related tools are extracted to a dedicated assembly `LocalConversational
 - Bootstrap scripts (setup-dependencies.ps1, bootstrap.sh) - require Qwen model download logic
 - Start scripts (start-dev.ps1, start.sh) - require model availability validation
 - README.md - requires comprehensive update with model configuration and UI workflow
-- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalConversationalAgent.OpenMeteo` assembly with SDK encapsulation (no openmeteo_sdk types exposed)
+- Weather tool implementations (GeocodingTools, WeatherTools, AirQualityTools) - will be extracted to new `LocalAIAgent.OpenMeteo` assembly with SDK encapsulation (no openmeteo_sdk types exposed)
 
 ## Non-Functional Requirements *(optional)*
 
@@ -577,10 +596,10 @@ var agent = chatClient.CreateAIAgent(
 
 **Replacement** (domain-agnostic):
 
-- `LocalConversationalAgent.Agent` → Generic agent backend
-- `LocalConversationalAgent.Web` → Generic web frontend
-- `LocalConversationalAgent.Tools` → Generic tool framework
-- `LocalConversationalAgent.AppHost` → Generic Aspire orchestration
+- `LocalAIAgent.Agent` → Generic agent backend
+- `LocalAIAgent.Web` → Generic web frontend
+- `LocalAIAgent.Tools` → Generic tool framework
+- `LocalAIAgent.AppHost` → Generic Aspire orchestration
 
 #### 7. Package Dependencies (OBSOLETE)
 
@@ -640,7 +659,7 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Migrate conversation state from manual list → `AgentThread`
 - [ ] Extract system prompts to `prompts/*.md` files
 - [ ] Update `appsettings.json` with model configuration
-- [ ] Rename projects: `Phi4WeatherAgent.*` → `LocalConversationalAgent.*`
+- [ ] Rename projects: `Phi4WeatherAgent.*` → `LocalAIAgent.*`
 - [ ] Refactor namespaces to match new project names
 - [ ] Update solution file and launch profiles
 - [ ] Update README with Agent Framework architecture
@@ -656,7 +675,7 @@ var agent = chatClient.CreateAIAgent(
 - [ ] Update README with model configuration section
 - [ ] Update README with model selection UI workflow documentation
 - [ ] Update README with troubleshooting guide for model setup issues
-- [ ] Create new `LocalConversationalAgent.OpenMeteo` assembly
+- [ ] Create new `LocalAIAgent.OpenMeteo` assembly
 - [ ] Add `openmeteo_sdk` v1.23.0 NuGet package reference to OpenMeteo assembly
 - [ ] Move GeocodingTools, WeatherTools, AirQualityTools to OpenMeteo assembly
 - [ ] Wrap `openmeteo_sdk` SDK in internal service layer (no SDK types in public API)
@@ -766,11 +785,11 @@ var agent = chatClient.CreateAIAgent(
 - Correctness: Prevents functools format leaking to models that don't expect it
 - Simplicity: Models with native support use simpler code path
 
-**Why LocalConversationalAgent.* naming?**
+**Why LocalAIAgent.* naming?**
 
 - **Local-first emphasis**: Highlights zero-cloud-cost, privacy-first value proposition (differentiates from cloud-based agents)
 - **Conversational clarity**: Clearly indicates chat/dialogue application (not just chatbot, but agent with tools)
-- **Reusability**: Architecture applicable to any local conversational agent (not limited to weather)
+- **Reusability**: Architecture applicable to any Local AI Agent (not limited to weather)
 - **Market positioning**: Distinguishes from OpenAI Assistants, Claude, etc. which are cloud-hosted
 
 ### Related Specifications

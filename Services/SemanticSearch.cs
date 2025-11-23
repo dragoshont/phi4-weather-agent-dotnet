@@ -1,4 +1,4 @@
-﻿using phi4_weather_agent_dotnet_temp.Services.Ingestion;
+using phi4_weather_agent_dotnet_temp.Services.Ingestion;
 using Microsoft.Extensions.VectorData;
 
 namespace phi4_weather_agent_dotnet_temp.Services;

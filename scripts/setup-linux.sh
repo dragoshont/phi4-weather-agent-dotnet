@@ -1,6 +1,6 @@
 #!/bin/bash
-# Linux Setup Script for Phi-4 Weather Agent
-# Checks and installs .NET 10 SDK, Ollama, and Phi-4 model
+# Linux Setup Script for Local AI Agent
+# Checks and installs .NET 10 SDK, Ollama, and AI models
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -9,7 +9,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m'
 
-echo -e "${CYAN}=== Phi-4 Weather Agent - Linux Setup ===${NC}"
+echo -e "${CYAN}=== Local AI Agent - Linux Setup ===${NC}"
 echo -e "${GRAY}This script is idempotent - safe to run multiple times${NC}"
 
 # Check .NET 10 SDK
@@ -49,7 +49,7 @@ else
     echo -e "${CYAN}This may take 5-15 minutes depending on connection speed${NC}"
     echo -e "${GRAY}Note: Ollama uses 'phi4' as the standard model (comparable to Foundry's phi4-mini)${NC}"
     echo -e "${GRAY}Please wait... (ollama will show download progress)${NC}"
-    
+
     # Run with output visible to show progress (ollama shows progress by default)
     if ollama pull phi4; then
         echo -e "${GREEN}✓ Phi-4 model downloaded successfully${NC}"
@@ -57,6 +57,43 @@ else
         echo -e "${RED}✗ Phi-4 model download failed. Check network connection and disk space.${NC}"
         echo -e "${YELLOW}  Retry: ollama pull phi4${NC}"
         exit 1
+    fi
+fi
+
+# Check if Qwen 2.5 VL 3B model exists
+echo -e "\n${YELLOW}Checking Qwen 2.5 VL 3B model...${NC}"
+if ollama list 2>/dev/null | grep -q "qwen2.5-vl:3b"; then
+    echo -e "${GREEN}✓ Qwen 2.5 VL 3B model found${NC}"
+else
+    echo -e "${YELLOW}Downloading Qwen 2.5 VL 3B model (~2.3GB, quantized format)...${NC}"
+    echo -e "${CYAN}This may take 3-10 minutes depending on connection speed${NC}"
+    echo -e "${GRAY}Note: Qwen 2.5 VL supports vision and advanced reasoning${NC}"
+    echo -e "${GRAY}Please wait... (ollama will show download progress)${NC}"
+
+    # Run with output visible to show progress
+    if ollama pull qwen2.5-vl:3b-instruct; then
+        echo -e "${GREEN}✓ Qwen 2.5 VL 3B model downloaded successfully${NC}"
+    else
+        echo -e "${RED}✗ Qwen 2.5 VL 3B model download failed. Check network connection and disk space.${NC}"
+        echo -e "${YELLOW}  Retry: ollama pull qwen2.5-vl:3b-instruct${NC}"
+        exit 1
+    fi
+fi
+
+# Check if Qwen 2.5-VL model exists (alternative vision model)
+echo -e "\n${YELLOW}Checking Qwen 2.5-VL model...${NC}"
+if ollama list 2>/dev/null | grep -q "qwen2.5-vl:3b-instruct"; then
+    echo -e "${GREEN}✓ Qwen 2.5-VL 3B model found${NC}"
+else
+    echo -e "${YELLOW}Downloading Qwen 2.5-VL 3B model (~2GB)...${NC}"
+    echo -e "${CYAN}This may take 2-5 minutes depending on connection speed${NC}"
+    echo -e "${GRAY}Note: Qwen supports vision capabilities and alternative model selection${NC}"
+
+    if ollama pull qwen2.5-vl:3b-instruct; then
+        echo -e "${GREEN}✓ Qwen 2.5-VL model downloaded successfully${NC}"
+    else
+        echo -e "${YELLOW}⚠ Qwen model download failed (optional - Phi-4 will work)${NC}"
+        echo -e "${GRAY}  Retry later: ollama pull qwen2.5-vl:3b-instruct${NC}"
     fi
 fi
 
@@ -80,6 +117,10 @@ echo -e "\n${CYAN}=== Setup Complete ===${NC}"
 echo -e "${GREEN}✓ .NET 10 SDK: $DOTNET_VERSION${NC}"
 echo -e "${GREEN}✓ Ollama: Installed${NC}"
 echo -e "${GREEN}✓ Phi-4 model: Ready${NC}"
-echo -e "\n${GREEN}You can now run: dotnet run --project src/Phi4WeatherAgent.AppHost${NC}"
+if ollama list 2>/dev/null | grep -q "qwen2.5-vl:3b-instruct"; then
+    echo -e "${GREEN}✓ Qwen 2.5-VL model: Ready${NC}"
+fi
+echo -e "\n${GREEN}You can now run: dotnet run --project src/LocalAIAgent.AppHost${NC}"
 echo -e "${CYAN}Aspire Dashboard will be available at: http://localhost:15888${NC}"
 echo -e "${GRAY}Ollama API endpoint: http://localhost:11434${NC}"
+echo -e "${GRAY}Switch models by editing appsettings.json AI:DefaultModel${NC}"

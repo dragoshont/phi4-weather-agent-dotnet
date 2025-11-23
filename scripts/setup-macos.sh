@@ -1,6 +1,6 @@
 #!/bin/bash
-# macOS Setup Script for Phi-4 Weather Agent
-# Checks and installs .NET 10 SDK, Foundry Local, and Phi-4 model
+# macOS Setup Script for Local AI Agent
+# Checks and installs .NET 10 SDK, Foundry Local, and AI models
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -9,7 +9,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m'
 
-echo -e "${CYAN}=== Phi-4 Weather Agent - macOS Setup ===${NC}"
+echo -e "${CYAN}=== Local AI Agent - macOS Setup ===${NC}"
 echo -e "${GRAY}This script is idempotent - safe to run multiple times${NC}"
 
 # Check .NET 10 SDK
@@ -49,7 +49,7 @@ else
     echo -e "${CYAN}This may take 3-8 minutes depending on connection speed${NC}"
     echo -e "${GRAY}Note: Using hardware-optimized variant (CPU/GPU/NPU auto-detection)${NC}"
     echo -e "${GRAY}Please wait... (foundry will show download progress)${NC}"
-    
+
     # Run with output visible to show progress
     if foundry model download phi4-mini 2>&1; then
         echo -e "${GREEN}✓ Phi-4 Mini model downloaded successfully${NC}"
@@ -60,9 +60,40 @@ else
     fi
 fi
 
+# Note: Qwen 2.5 VL 3B requires Ollama (Linux-only in current configuration)
+# macOS users can use Phi-4 Mini via Foundry Local
+echo -e "\n${CYAN}Note: Qwen 2.5 VL 3B model available via Ollama on Linux${NC}"
+echo -e "${GRAY}macOS users: Phi-4 Mini via Foundry Local is recommended${NC}"
+
+# Check if Ollama is installed for Qwen model (alternative to Foundry)
+echo -e "\n${YELLOW}Checking Ollama for Qwen model support...${NC}"
+if command -v ollama &> /dev/null; then
+    echo -e "${GREEN}✓ Ollama found${NC}"
+
+    # Check if Qwen 2.5-VL model exists
+    if ollama list 2>/dev/null | grep -q "qwen2.5-vl:3b-instruct"; then
+        echo -e "${GREEN}✓ Qwen 2.5-VL 3B model found${NC}"
+    else
+        echo -e "${YELLOW}Downloading Qwen 2.5-VL 3B model (~2GB)...${NC}"
+        echo -e "${CYAN}This may take 2-5 minutes depending on connection speed${NC}"
+
+        if ollama pull qwen2.5-vl:3b-instruct; then
+            echo -e "${GREEN}✓ Qwen 2.5-VL model downloaded successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠ Qwen model download failed (optional - Phi-4 will work)${NC}"
+        fi
+    fi
+else
+    echo -e "${CYAN}ℹ Ollama not installed (optional - only needed for Qwen model)${NC}"
+    echo -e "${GRAY}  Install: brew install ollama${NC}"
+fi
+
 echo -e "\n${CYAN}=== Setup Complete ===${NC}"
 echo -e "${GREEN}✓ .NET 10 SDK: $DOTNET_VERSION${NC}"
 echo -e "${GREEN}✓ Foundry Local: Installed${NC}"
 echo -e "${GREEN}✓ Phi-4 Mini model: Ready${NC}"
-echo -e "\n${GREEN}You can now run: dotnet run --project src/Phi4WeatherAgent.AppHost${NC}"
+if command -v ollama &> /dev/null && ollama list 2>/dev/null | grep -q "qwen2.5-vl:3b-instruct"; then
+    echo -e "${GREEN}✓ Qwen 2.5-VL model: Ready${NC}"
+fi
+echo -e "\n${GREEN}You can now run: dotnet run --project src/LocalAIAgent.AppHost${NC}"
 echo -e "${CYAN}Aspire Dashboard will be available at: http://localhost:15888${NC}"

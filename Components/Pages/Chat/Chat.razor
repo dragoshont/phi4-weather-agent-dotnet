@@ -1,13 +1,44 @@
-﻿@page "/"
+@page "/"
 @using System.ComponentModel
+@using LocalAIAgent.Agent.Interfaces
+@using LocalAIAgent.Agent.Models
+@using LocalAIAgent.Agent.Services
+@using Microsoft.Extensions.Options
 @inject IChatClient ChatClient
 @inject NavigationManager Nav
 @inject SemanticSearch Search
+@inject IPromptProvider PromptProvider
+@inject IOptions<AIConfiguration> AIConfig
 @implements IDisposable
 
 <PageTitle>Chat</PageTitle>
 
 <ChatHeader OnNewChat="@ResetConversationAsync" />
+
+<div class="model-selector-container">
+    <label for="model-selector" class="model-selector-label">AI Model:</label>
+    <select id="model-selector"
+            class="model-selector"
+            @bind="selectedModel"
+            disabled="@isModelDropdownDisabled"
+            aria-label="Select AI model"
+            aria-describedby="model-selector-help">
+        @foreach (var model in availableModels)
+        {
+            <option value="@model.Key">@FormatModelDisplayName(model.Key, model.Value)</option>
+        }
+    </select>
+    <span id="model-selector-help" class="model-selector-help">
+        @if (isModelDropdownDisabled)
+        {
+            <text>Model locked for this conversation</text>
+        }
+        else
+        {
+            <text>Select model before sending first message</text>
+        }
+    </span>
+</div>
 
 <ChatMessageList Messages="@messages" InProgressMessage="@currentResponseMessage">
     <NoMessagesContent>
@@ -24,24 +55,10 @@
 </div>
 
 @code {
-    private const string SystemPrompt = @"
-        You are an assistant who answers questions about information you retrieve.
-        Do not answer questions about anything else.
-        Use only simple markdown to format your responses.
-
-        Use the LoadDocuments tool to prepare for searches before answering any questions.
-
-        Use the Search tool to find relevant information. When you do this, end your
-        reply with citations in the special XML format:
-
-        <citation filename='string'>exact quote here</citation>
-
-        Always include the citation in your response if there are results.
-
-        The quote must be max 5 words, taken word-for-word from the search result, and is the basis for why the citation is relevant.
-        Don't refer to the presence of citations; just emit these tags right at the end, with no surrounding text.
-        ";
-
+    private string? systemPrompt;
+    private Dictionary<string, ModelConfiguration> availableModels = new();
+    private string selectedModel = string.Empty;
+    private bool isModelDropdownDisabled = false;
     private int statefulMessageCount;
     private readonly ChatOptions chatOptions = new();
     private readonly List<ChatMessage> messages = new();
@@ -50,19 +67,38 @@
     private ChatInput? chatInput;
     private ChatSuggestions? chatSuggestions;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        // Load system prompt from file
+        systemPrompt = await PromptProvider.GetSystemPromptAsync();
+
+        // Load available models from configuration
+        availableModels = AIConfig.Value.Models;
+        selectedModel = AIConfig.Value.DefaultModel;
+
         statefulMessageCount = 0;
-        messages.Add(new(ChatRole.System, SystemPrompt));
+        messages.Add(new(ChatRole.System, systemPrompt));
         chatOptions.Tools = [
             AIFunctionFactory.Create(LoadDocumentsAsync),
             AIFunctionFactory.Create(SearchAsync)
         ];
     }
 
+    private string FormatModelDisplayName(string key, ModelConfiguration config)
+    {
+        var endpointType = config.Endpoint.Contains("localhost") ? "Local" : "Cloud";
+        return $"{config.Provider}: {config.Name} ({endpointType})";
+    }
+
     private async Task AddUserMessageAsync(ChatMessage userMessage)
     {
         CancelAnyCurrentResponse();
+
+        // Lock model dropdown after first user message
+        if (!isModelDropdownDisabled)
+        {
+            isModelDropdownDisabled = true;
+        }
 
         // Add the user message to the conversation
         messages.Add(userMessage);
@@ -104,9 +140,15 @@
     {
         CancelAnyCurrentResponse();
         messages.Clear();
-        messages.Add(new(ChatRole.System, SystemPrompt));
+
+        if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            messages.Add(new(ChatRole.System, systemPrompt));
+        }
+
         chatOptions.ConversationId = null;
         statefulMessageCount = 0;
+        isModelDropdownDisabled = false;
         chatSuggestions?.Clear();
         await chatInput!.FocusAsync();
     }

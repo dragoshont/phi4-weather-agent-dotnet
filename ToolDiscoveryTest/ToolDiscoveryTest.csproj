@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Phi4WeatherAgent.Agent\Phi4WeatherAgent.Agent.csproj" />
-    <ProjectReference Include="..\src\Phi4WeatherAgent.Tools\Phi4WeatherAgent.Tools.csproj" />
+    <ProjectReference Include="..\src\LocalAIAgent.Agent\LocalAIAgent.Agent.csproj" />
+    <ProjectReference Include="..\src\LocalAIAgent.Tools\LocalAIAgent.Tools.csproj" />
   </ItemGroup>
 
 </Project>

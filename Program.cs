@@ -3,12 +3,37 @@ using OllamaSharp;
 using phi4_weather_agent_dotnet_temp.Components;
 using phi4_weather_agent_dotnet_temp.Services;
 using phi4_weather_agent_dotnet_temp.Services.Ingestion;
+using LocalAIAgent.Agent.Models;
+using LocalAIAgent.Agent.Services;
+using LocalAIAgent.Agent.Interfaces;
+using LocalAIAgent.Agent.Handlers;
+using LocalAIAgent.Agent.Parsing;
+using LocalAIAgent.Agent.Dispatching;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
-IChatClient chatClient = new OllamaApiClient(new Uri("http://localhost:11434"),
-    "llama3.2");
+// Configure AI settings with Options pattern
+builder.Services.Configure<AIConfiguration>(builder.Configuration.GetSection("AI"));
+
+// Register AI configuration services
+builder.Services.AddSingleton<ConfigurationValidator>();
+builder.Services.AddHostedService<ConfigurationValidator>();
+builder.Services.AddSingleton<ConfigurationProvider>();
+builder.Services.AddSingleton<IPromptProvider, PromptProvider>();
+builder.Services.AddSingleton<ChatClientFactory>();
+
+// Register functools dependencies
+builder.Services.AddSingleton<IFunctoolsParser, FunctoolsParser>();
+builder.Services.AddSingleton<IToolInvoker, ToolInvoker>();
+
+// Register FunctoolsHandler as keyed service
+builder.Services.AddKeyedSingleton<IToolInvocationHandler, FunctoolsHandler>("Functools");
+
+// Create IChatClient using factory
+var chatClientFactory = builder.Services.BuildServiceProvider().GetRequiredService<ChatClientFactory>();
+var chatClient = chatClientFactory.CreateChatClient();
+
 IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator = new OllamaApiClient(new Uri("http://localhost:11434"),
     "all-minilm");
 
