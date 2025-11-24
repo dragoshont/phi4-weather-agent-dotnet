@@ -107,21 +107,16 @@ try {
 
     Write-Host "  Default model: $defaultModel" -ForegroundColor Cyan
 
-    # Find model configuration
-    $modelConfig = $null
-    foreach ($model in $config.AI.Models) {
-        if ($model.Name -eq $defaultModel) {
-            $modelConfig = $model
-            break
-        }
-    }
+    # Find model configuration (Models is an object/dictionary, not array)
+    $modelConfig = $config.AI.Models.$defaultModel
 
     if (-not $modelConfig) {
-        Write-Host "  ERROR Model '$defaultModel' not found in AI:Models array" -ForegroundColor Red
+        Write-Host "  ERROR Model '$defaultModel' not found in AI:Models object" -ForegroundColor Red
         Write-Host ""
         Write-Host "  Available models:" -ForegroundColor Yellow
-        foreach ($m in $config.AI.Models) {
-            Write-Host "    - $($m.Name) ($($m.Provider))" -ForegroundColor White
+        foreach ($modelKey in $config.AI.Models.PSObject.Properties.Name) {
+            $m = $config.AI.Models.$modelKey
+            Write-Host "    - $modelKey ($($m.Provider))" -ForegroundColor White
         }
         Write-Host ""
         exit 1
@@ -129,7 +124,7 @@ try {
 
     # Validate model availability based on provider
     $provider = $modelConfig.Provider
-    $modelId = $modelConfig.ModelId
+    $modelId = $modelConfig.Name
 
     Write-Host "  Provider: $provider" -ForegroundColor Cyan
     Write-Host "  Model ID: $modelId" -ForegroundColor Cyan

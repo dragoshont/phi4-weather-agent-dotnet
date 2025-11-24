@@ -8,9 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="1.31.3" />
-    <PackageReference Include="bunit.web" Version="1.31.3" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.Agents.AI.Abstractions" Version="1.0.0-preview.251001.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
@@ -27,6 +26,7 @@
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
       <Aliases>web</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\LocalAIAgent.Agent\LocalAIAgent.Agent.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using LocalAIAgent.Agent.Adapters;
 using LocalAIAgent.Agent.Dispatching;
 using LocalAIAgent.Agent.Handlers;
 using LocalAIAgent.Agent.Interfaces;
@@ -69,9 +70,8 @@ builder.Services.AddSingleton<ChatClientAgent>(sp =>
 {
     var factory = sp.GetRequiredService<ChatClientFactory>();
     var promptProvider = sp.GetRequiredService<IPromptProvider>();
-    var geocodeTool = sp.GetRequiredService<GeocodeTool>();
-    var weatherTool = sp.GetRequiredService<WeatherTool>();
-    var allergenTool = sp.GetRequiredService<AllergenTool>();
+    var toolRegistry = sp.GetRequiredService<IToolRegistry>();
+    var aiFunctionAdapter = sp.GetRequiredService<IAIFunctionAdapter>();
     var logger = sp.GetRequiredService<ILogger<ChatClientAgent>>();
     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
@@ -83,22 +83,37 @@ builder.Services.AddSingleton<ChatClientAgent>(sp =>
     // Get system prompt
     var systemPrompt = promptProvider.GetSystemPromptAsync().GetAwaiter().GetResult();
 
-    // Create ChatClientAgent with tools using constructor
+    // Get all discovered tools from registry and convert to AITool declarations
+    var discoveredTools = new List<AITool>();
+    var enumerator = toolRegistry.ListAsync().GetAsyncEnumerator();
+    try
+    {
+        while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+        {
+            var toolDescriptor = enumerator.Current;
+            var aiFunction = aiFunctionAdapter.ConvertToAIFunction(toolDescriptor);
+            discoveredTools.Add(aiFunction);
+        }
+    }
+    finally
+    {
+        enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    logger.LogInformation("Loaded {ToolCount} tools from registry", discoveredTools.Count);
+
+    // Create ChatClientAgent with dynamically discovered tools
     var agent = new ChatClientAgent(
         chatClient: chatClient,
         instructions: systemPrompt,
         name: "WeatherAssistant",
         description: "AI assistant for weather forecasts and allergen information",
-        tools: [
-            AIFunctionFactory.Create(geocodeTool.GeocodeLocationAsync),
-            AIFunctionFactory.Create(weatherTool.GetWeatherForecastAsync),
-            AIFunctionFactory.Create(allergenTool.GetAllergenLevelsAsync)
-        ],
+        tools: discoveredTools,
         loggerFactory: loggerFactory,
         services: sp
     );
 
-    logger.LogInformation("ChatClientAgent created successfully with {ToolCount} tools", 3);
+    logger.LogInformation("ChatClientAgent created successfully with {ToolCount} tools", discoveredTools.Count);
 
     return agent;
 });

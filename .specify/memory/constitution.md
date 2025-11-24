@@ -1,30 +1,24 @@
 <!--
 Sync Impact Report:
-- Version: 1.3.0 → 1.4.0 (MINOR bump: corrected Principle III package names to Microsoft.Agents.AI)
+- Version: 1.4.0 → 1.4.1 (PATCH bump: clarified integration test prerequisites)
 - Principles Modified:
-  • III. Agent Framework Only → Corrected to Microsoft.Agents.AI (official successor to Semantic Kernel and AutoGen per Microsoft docs)
-  • Technology Stack Constraints → Updated Agent Framework package name
+  • IX. Comprehensive Testing Coverage → Added prerequisite for integration tests (Foundry service must be running)
 - Principles Added: None
 - Principles Renamed: None
 - Sections Removed: None
 - Rationale for Change:
-  Microsoft official documentation confirms Microsoft.Agents.AI is the "direct successor" and "next generation"
-  of both Semantic Kernel and AutoGen. Previous constitution incorrectly referenced Microsoft.Extensions.AI
-  as "Agent Framework" when it only provides low-level abstractions (IChatClient, IEmbeddingGenerator).
-  See: https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview
+  Integration tests that interact with AI models require Foundry Local service to be running.
+  Command `foundry service start` must be executed before running integration tests.
+  Service outputs endpoint like http://127.0.0.1:53798/ which tests use to connect.
+  Clarification prevents "connection refused" errors during test execution.
 - Templates Status:
-  ✅ plan-template.md - Compatible (reviewed v1.1.0)
-  ✅ spec-template.md - Compatible (reviewed v1.1.0)
-  ✅ tasks-template.md - Compatible (reviewed v1.1.0)
-  ⚠️ Feature 003 spec/plan/tasks - NOW CORRECT (no changes needed, constitution was wrong)
+  ✅ plan-template.md - Compatible (no changes needed)
+  ✅ spec-template.md - Compatible (no changes needed)
+  ✅ tasks-template.md - Compatible (no changes needed)
 - Completed Actions:
-  ✅ Constitution corrected to align with Microsoft Agent Framework official naming
-  ✅ Principle III updated: Microsoft.Agents.AI (not Microsoft.Extensions.AI)
-  ✅ Technology Stack section updated with correct package versions
-  ✅ Version bumped to 1.4.0 with amendment date 2025-11-20
-- Follow-up TODOs:
-  • Update analysis report to reflect constitution correction (findings A01-A03 now resolved)
-  • No spec/plan/tasks changes needed (they were correct all along)
+  ✅ Principle IX updated with Foundry service prerequisite for integration tests
+  ✅ Version bumped to 1.4.1 with amendment date 2025-11-24
+- Follow-up TODOs: None
 -->
 
 # Phi-4 Weather Assistant Constitution
@@ -173,6 +167,9 @@ This hybrid approach MUST integrate with Agent Framework's IChatClient abstracti
 - **Unit Tests**: xUnit for business logic (Agent, MCP tools, HTTP clients)
 - **Component Tests**: bUnit for Blazor UI components (ChatMessageItem, weather cards)
 - **Integration Tests**: Test Agent Framework + MCP tool orchestration
+  - **Prerequisites**: Foundry Local service must be running (`foundry service start`)
+  - Service outputs endpoint (e.g., `http://127.0.0.1:53798/`) which tests connect to
+  - Without running service, tests fail with "connection refused" errors
 - **E2E Tests**: Playwright for full user workflows (location search → weather display)
 - **Benchmarks**: BenchmarkDotNet for Agent Framework initialization performance
 
@@ -214,7 +211,6 @@ This hybrid approach MUST integrate with Agent Framework's IChatClient abstracti
 **Rationale**: Maximizes reusability and commercialization options for forks. Avoids viral copyleft obligations.
 
 ### XII. Custom Invocation Layer (Phi-4-mini)
-
 **Build a robust invocation layer** to parse Phi-4-mini's `functools[...]` format and execute MCP/local tools.
 
 **Project Scope:**
@@ -397,4 +393,4 @@ This constitution is **binding for all code, dependencies, documentation, and ar
 - CI pipeline enforces technology stack constraints (dependency scanning)
 - Code review checklist includes constitution verification
 
-**Version**: 1.4.0 | **Ratified**: 2025-11-16 | **Last Amended**: 2025-11-20
+**Version**: 1.4.1 | **Ratified**: 2025-11-16 | **Last Amended**: 2025-11-24

@@ -152,8 +152,8 @@
 - [X] T066 [US5] Implement multiple visual cues for disabled state (color + lock icon) in src/LocalAIAgent.Web/Components/Pages/Chat.razor
 - [X] T067 [US5] Add error state with role="alert" for dropdown population failures in src/LocalAIAgent.Web/Components/Pages/Chat.razor
 - [X] T068 [US5] Handle long endpoint URLs with truncation (max 50 chars) and tooltip in src/LocalAIAgent.Web/Components/Pages/Chat.razor
-- [ ] T069 [US5] Create bUnit component tests for dropdown behavior in tests/LocalAIAgent.Web.Tests/Components/ChatDropdownTests.cs
-- [ ] T070 [US5] Create bUnit tests for accessibility compliance (keyboard navigation) in tests/LocalAIAgent.Web.Tests/Components/ChatAccessibilityTests.cs
+- [ ] T069 [US5] Create bUnit component tests for dropdown behavior in tests/LocalAIAgent.Web.Tests/Components/ChatDropdownTests.cs (⚠️ BLOCKED: Requires T055-T068 model dropdown implementation in LocalAIAgent.Web)
+- [ ] T070 [US5] Create bUnit tests for accessibility compliance (keyboard navigation) in tests/LocalAIAgent.Web.Tests/Components/ChatAccessibilityTests.cs (⚠️ BLOCKED: Requires T055-T068 model dropdown implementation in LocalAIAgent.Web)
 - [ ] T071 [US5] Validate accessibility with axe DevTools (zero violations target) - manual test documented in specs/003-model-abstraction/quickstart.md
 
 ---
